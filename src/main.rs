@@ -4,6 +4,7 @@ mod server;
 
 mod macros;
 
+use std::sync::{Arc, Mutex};
 use crate::macros::get_localized;
 use bevy::prelude::*;
 use bevy::DefaultPlugins;
@@ -124,7 +125,7 @@ struct PlayerState {
     progression: TutorialProgression,
     language_identifier: LanguageIdentifier,
     credits: u128,
-    servers: Vec<Server>,
+    servers: Vec<Arc<Mutex<Server>>>,
 }
 
 #[derive(Resource)]
@@ -157,12 +158,12 @@ fn main() {
             language_identifier: "en-US".parse().unwrap(),
             credits: 87,
             servers: vec![
-                Server {
+                Arc::new(Mutex::new(Server {
                     name: "fe80:0070::".to_string(),
                     threads: 2,
                     clock_speed_hz: 2_000_000_000,
                     stats: vec![],
-                }
+                }))
             ]
         })
         .insert_resource(TestWindowState { open: true })
@@ -238,7 +239,8 @@ fn update_side_panel(
         }
         if player_state.progression.show_servers_tab() {
             ui.collapsing(loc!(player_state, "ui_menu_sidebar_servers_section"), |ui| {
-                for server in &player_state.servers {
+                for server_arc in &player_state.servers {
+                    let server = server_arc.lock().unwrap();
                     if ui.selectable_label(false, &server.name).clicked() {
                         if matches!(player_state.progression, TutorialProgression::ServersTabIntroduced) {
                             player_state.progression = TutorialProgression::ServerClicked;

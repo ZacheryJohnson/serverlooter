@@ -28,7 +28,8 @@ pub struct ServersPanel {
 
 impl Panel for ServersPanel {
     fn update(&mut self, ui: &mut Ui, player_state: &PlayerState) {
-        for server in &player_state.servers {
+        for server_arc in &player_state.servers {
+            let server = server_arc.lock().unwrap();
             let grouping = ui.group(|group_ui| {
                 let vert = group_ui.vertical_centered(|vert_ui| {
                     vert_ui.heading(&server.name);
