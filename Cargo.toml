@@ -1,0 +1,11 @@
+[package]
+name = "serverlooter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = "=0.17.3"
+bevy_egui = "=0.38.0"
+fluent-templates = "=0.13.2"
+serde = "=1.0.228"
+unic-langid = "=0.9.6" # for use with fluent localization
