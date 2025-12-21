@@ -1,5 +1,6 @@
 mod player;
 mod ui;
+mod script;
 mod server;
 
 mod macros;
@@ -10,8 +11,9 @@ use bevy::prelude::*;
 use bevy::DefaultPlugins;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use unic_langid::LanguageIdentifier;
+use crate::script::Script;
 use crate::server::Server;
-use crate::ui::{Panel, MarketPanel, ServersPanel};
+use crate::ui::{Panel, MarketPanel, ServersPanel, ScriptsPanel};
 
 enum TutorialProgression {
     /// The option to start with a tutorial hasn't been presented to the player yet.
@@ -126,6 +128,7 @@ struct PlayerState {
     language_identifier: LanguageIdentifier,
     credits: u128,
     servers: Vec<Arc<Mutex<Server>>>,
+    scripts: Vec<Arc<Mutex<Script>>>,
 }
 
 #[derive(Resource)]
@@ -145,6 +148,7 @@ struct UiState {
     active_panel: ActivePanel,
     market_panel_state: MarketPanel,
     server_panel_state: ServersPanel,
+    scripts_panel_state: ScriptsPanel,
 }
 
 fn main() {
@@ -164,13 +168,15 @@ fn main() {
                     clock_speed_hz: 2_000_000_000,
                     stats: vec![],
                 }))
-            ]
+            ],
+            scripts: vec![],
         })
         .insert_resource(TestWindowState { open: true })
         .insert_resource(UiState {
             active_panel: ActivePanel::Home,
             market_panel_state: MarketPanel {},
             server_panel_state: ServersPanel {},
+            scripts_panel_state: ScriptsPanel {},
         })
         .run();
 }
@@ -211,7 +217,7 @@ fn update_main_panel(
                 ui_state.server_panel_state.update(ui, player_state);
             }
             ActivePanel::Scripts => {
-
+                ui_state.scripts_panel_state.update(ui, player_state);
             }
         }
     });

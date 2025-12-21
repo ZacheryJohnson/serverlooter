@@ -59,6 +59,6 @@ pub struct ScriptsPanel {
 
 impl Panel for ScriptsPanel {
     fn update(&mut self, ui: &mut Ui, player_state: &PlayerState) {
-        todo!()
+        ui.heading("Scripts");
     }
 }
