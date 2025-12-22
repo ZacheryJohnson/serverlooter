@@ -2,16 +2,20 @@ mod player;
 mod ui;
 mod script;
 mod server;
+mod inventory;
 
 mod macros;
 
 use std::sync::{Arc, Mutex};
+use bevy::asset::io::ErasedAssetWriter;
 use crate::macros::get_localized;
 use bevy::prelude::*;
 use bevy::DefaultPlugins;
+use bevy::ecs::relationship::RelationshipSourceCollection;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use unic_langid::LanguageIdentifier;
-use crate::script::Script;
+use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inventory};
+use crate::script::{Script, ScriptCreatedEvent};
 use crate::server::Server;
 use crate::ui::{Panel, MarketPanel, ServersPanel, ScriptsPanel};
 
@@ -127,6 +131,7 @@ struct PlayerState {
     progression: TutorialProgression,
     language_identifier: LanguageIdentifier,
     credits: u128,
+    inventory: Inventory,
     servers: Vec<Arc<Mutex<Server>>>,
     scripts: Vec<Arc<Mutex<Script>>>,
 }
@@ -157,10 +162,15 @@ fn main() {
         .add_plugins(EguiPlugin::default())
         .add_systems(Startup, setup_camera_system)
         .add_systems(EguiPrimaryContextPass, (update_ui, tutorial_ui_system))
+        .add_observer(tutorial_on_script_created)
+        .add_observer(on_script_created)
+        .add_observer(on_inventory_item_added)
+        .add_observer(on_inventory_item_removed)
         .insert_resource(PlayerState {
             progression: TutorialProgression::None,
             language_identifier: "en-US".parse().unwrap(),
             credits: 87,
+            inventory: Inventory::new(),
             servers: vec![
                 Arc::new(Mutex::new(Server {
                     name: "fe80:0070::".to_string(),
@@ -176,7 +186,7 @@ fn main() {
             active_panel: ActivePanel::Home,
             market_panel_state: MarketPanel {},
             server_panel_state: ServersPanel {},
-            scripts_panel_state: ScriptsPanel {},
+            scripts_panel_state: ScriptsPanel::new(),
         })
         .run();
 }
@@ -186,6 +196,7 @@ fn setup_camera_system(mut commands: Commands) {
 }
 
 fn update_ui(
+    mut commands: Commands,
     mut context: EguiContexts,
     mut ui_state: ResMut<UiState>,
     mut player_state: ResMut<PlayerState>,
@@ -195,12 +206,13 @@ fn update_ui(
     update_side_panel(ctx, &mut ui_state, &mut player_state)?;
 
     // Main panel must be last
-    update_main_panel(ctx, &mut ui_state, &mut player_state)?;
+    update_main_panel(&mut commands, ctx, &mut ui_state, &mut player_state)?;
 
     Ok(())
 }
 
 fn update_main_panel(
+    commands: &mut Commands,
     ctx: &mut egui::Context,
     ui_state: &mut UiState,
     player_state: &mut PlayerState,
@@ -211,13 +223,13 @@ fn update_main_panel(
                 // ZJ-TODO
             }
             ActivePanel::Market => {
-                ui_state.market_panel_state.update(ui, player_state);
+                ui_state.market_panel_state.update(commands, ctx, ui, player_state);
             }
             ActivePanel::Servers => {
-                ui_state.server_panel_state.update(ui, player_state);
+                ui_state.server_panel_state.update(commands, ctx, ui, player_state);
             }
             ActivePanel::Scripts => {
-                ui_state.scripts_panel_state.update(ui, player_state);
+                ui_state.scripts_panel_state.update(commands, ctx, ui, player_state);
             }
         }
     });
@@ -288,6 +300,27 @@ fn update_side_panel(
     Ok(())
 }
 
+fn on_script_created(
+    evt: On<ScriptCreatedEvent>,
+    mut player_state: ResMut<PlayerState>,
+) -> Result {
+    let script = evt.script.to_owned();
+    player_state.scripts.push(Arc::new(Mutex::new(script)));
+
+    Ok(())
+}
+
+fn tutorial_on_script_created(
+    _: On<ScriptCreatedEvent>,
+    mut player_state: ResMut<PlayerState>,
+) -> Result {
+    if matches!(player_state.progression, TutorialProgression::ScriptClicked) {
+        player_state.progression.advance();
+    }
+
+    Ok(())
+}
+
 fn tutorial_ui_system(
     mut context: EguiContexts,
     mut window_state: ResMut<TestWindowState>,
@@ -343,11 +376,6 @@ fn tutorial_ui_system(
         TutorialProgression::ScriptClicked => {
             window.show(context.ctx_mut()?, |ui| {
                ui.label(loc!(player_state, "tutorial_stage_5"));
-
-                // ZJ-TODO: remove this once script logic implemented
-                if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
-                    player_state.progression.advance();
-                }
             });
         }
         TutorialProgression::MarketTabIntroduced => {

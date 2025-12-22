@@ -1,4 +1,10 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, VecDeque};
+use bevy::prelude::Event;
+
+#[derive(Event)]
+pub struct ScriptCreatedEvent {
+    pub script: Script
+}
 
 // ZJ-TODO: figure out how to join/split procedures
 // eg       x-x-x
@@ -7,13 +13,14 @@ use std::collections::BTreeMap;
 //         \     /
 //          x-x-/
 
+#[derive(Clone)]
 pub struct AlgorithmProcedure {
-    pub algorithms: Vec<Algorithm>,
+    pub algorithms: VecDeque<Algorithm>,
 }
 
 impl AlgorithmProcedure {
-    pub fn next(&mut self) -> Option<AlgorithmExecutor> {
-        let Some(next_algorithm) = self.algorithms.pop() else {
+    fn next(&mut self) -> Option<AlgorithmExecutor> {
+        let Some(next_algorithm) = self.algorithms.pop_back() else {
             return None
         };
 
@@ -27,6 +34,7 @@ impl AlgorithmProcedure {
     }
 }
 
+#[derive(Clone)]
 pub struct Script {
     pub procedures: Vec<AlgorithmProcedure>,
 }
@@ -38,6 +46,12 @@ impl Script {
 
     pub fn new(procedures: Vec<AlgorithmProcedure>) -> Script {
         Script { procedures }
+    }
+
+    /// Clones self to create an executor.
+    pub fn executor(&self) -> ScriptExecutor {
+        let clone = self.clone();
+        ScriptExecutor::from(clone)
     }
 
     pub fn into_executor(self) -> ScriptExecutor {
@@ -55,8 +69,43 @@ impl ScriptBuilder {
             script: Script::empty(),
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self
+            .script
+            .procedures
+            .iter()
+            .all(|proc| proc.algorithms.is_empty())
+    }
+
+    pub fn add_algorithm(&mut self, algorithm: Algorithm) {
+        // ZJ-TODO: handle multiple procedures
+        match self.script.procedures.first_mut() {
+            Some(procedure) => {
+                procedure.algorithms.push_front(algorithm)
+            },
+            None => self.script.procedures.push(AlgorithmProcedure {
+                algorithms: vec![algorithm].into(),
+            })
+        }
+    }
+
+    pub fn remove_algorithm(&mut self, algorithm: Algorithm) {
+        for procedure in self.script.procedures.iter_mut() {
+            procedure.algorithms.retain(|algo| algo != &algorithm);
+        }
+    }
+
+    pub fn current_script(&self) -> &Script {
+        &self.script
+    }
+
+    pub fn finish(self) -> Script {
+        self.script
+    }
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Algorithm {
     /// How many instructions does this algorithm contain?
     /// Once all instructions are executed, the algorithm is considered complete
@@ -70,6 +119,10 @@ pub struct Algorithm {
 pub struct AlgorithmEffect(AlgorithmEffectType, AlgorithmApplicationType);
 
 impl AlgorithmEffect {
+    pub fn new(effect_type: AlgorithmEffectType, application_type: AlgorithmApplicationType) -> AlgorithmEffect {
+        AlgorithmEffect(effect_type, application_type)
+    }
+
     pub fn effect(&self) -> &AlgorithmEffectType {
         &self.0
     }
@@ -170,12 +223,12 @@ impl AlgorithmProcedureExecutor {
     /// If the procedure contains no algorithms, returns None.
     pub fn from(algorithm_procedure: AlgorithmProcedure) -> Option<AlgorithmProcedureExecutor> {
         let mut algorithms = algorithm_procedure.algorithms;
-        let Some(first_algorithm) = algorithms.pop() else {
+        let Some(first_algorithm) = algorithms.pop_back() else {
             return None;
         };
 
         Some(AlgorithmProcedureExecutor {
-            algorithms,
+            algorithms: algorithms.into(),
             algorithm_executor: AlgorithmExecutor::from(first_algorithm),
             is_paused: true,
         })
@@ -305,7 +358,7 @@ mod tests {
         };
 
         let procedure = AlgorithmProcedure {
-            algorithms: vec![algorithm2, algorithm1],
+            algorithms: vec![algorithm2, algorithm1].into(),
         };
 
         let mut executor = AlgorithmProcedureExecutor::from(procedure).unwrap();
@@ -341,7 +394,7 @@ mod tests {
         };
 
         let procedure = AlgorithmProcedure {
-            algorithms: vec![algorithm2, algorithm1],
+            algorithms: vec![algorithm2, algorithm1].into(),
         };
 
         let script = Script {
