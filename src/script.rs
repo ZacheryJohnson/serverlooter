@@ -1,5 +1,8 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::fmt::{Display, Formatter};
+use std::ops::Range;
 use bevy::prelude::Event;
+use rand::Rng;
 
 #[derive(Event)]
 pub struct ScriptCreatedEvent {
@@ -34,18 +37,34 @@ impl AlgorithmProcedure {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ScriptId {
+    Invalid,
+    Id(u64),
+}
+
+impl Display for ScriptId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScriptId::Invalid => write!(f, "Invalid"),
+            ScriptId::Id(id) => write!(f, "{id}"),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Script {
+    pub id: ScriptId,
     pub procedures: Vec<AlgorithmProcedure>,
 }
 
 impl Script {
     pub fn empty() -> Script {
-        Script { procedures: Vec::new() }
+        Script { id: ScriptId::Invalid, procedures: Vec::new() }
     }
 
-    pub fn new(procedures: Vec<AlgorithmProcedure>) -> Script {
-        Script { procedures }
+    pub fn new(id: ScriptId, procedures: Vec<AlgorithmProcedure>) -> Script {
+        Script { id, procedures }
     }
 
     /// Clones self to create an executor.
@@ -115,49 +134,49 @@ pub struct Algorithm {
     pub instruction_effects: BTreeMap<u32, Vec<AlgorithmEffect>>,
 }
 
+
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct AlgorithmEffect(AlgorithmEffectType, AlgorithmApplicationType);
+pub enum AlgorithmEffectValue {
+    /// This value will always be a single value (the provided `i32`).
+    Static(i32),
 
-impl AlgorithmEffect {
-    pub fn new(effect_type: AlgorithmEffectType, application_type: AlgorithmApplicationType) -> AlgorithmEffect {
-        AlgorithmEffect(effect_type, application_type)
+    /// This value will be any integer between the lower and upper `i32` values, inclusive.
+    /// Will panic if lower is greater than upper.
+    RangeInclusive(i32, i32),
+}
+
+impl AlgorithmEffectValue {
+    /// Gets or generates a value.
+    /// Repeated calls may result in different values in the case of range values (such as [RangeInclusive](AlgorithmEffectValue::RangeInclusive)).
+    pub fn make_value(&self) -> i32 {
+        let rng = &mut rand::rng();
+        match self {
+            Self::Static(v) => *v,
+            Self::RangeInclusive(min, max) => {
+                assert!(min <= max);
+                rng.sample(
+                    rand::distr::Uniform::new(*min, *max + 1).unwrap()
+                )
+            },
+        }
     }
+}
 
-    pub fn effect(&self) -> &AlgorithmEffectType {
-        &self.0
+impl From<i32> for AlgorithmEffectValue {
+    fn from(value: i32) -> Self {
+        AlgorithmEffectValue::Static(value)
     }
+}
 
-    pub fn application(&self) -> &AlgorithmApplicationType {
-        &self.1
+impl From<Range<i32>> for AlgorithmEffectValue {
+    fn from(value: Range<i32>) -> Self {
+        AlgorithmEffectValue::RangeInclusive(value.start, value.end)
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum AlgorithmEffectType {
-    Extract { efficacy: u32, }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum AlgorithmApplicationType {
-    /// Effect will apply immediately
-    Instant,
-
-    /// Effect will apply once after a number of milliseconds
-    DelayMs(u32),
-
-    /// Effect will apply every N milliseconds
-    AfterEveryMs(u32),
-
-    /// Effect will apply immediately AND every N milliseconds
-    InstantAndEveryMs(u32),
-
-    /// Effect will apply every 1/Nth interval
-    /// eg Fractional(4) and an execution time of 2 seconds => (0.5s, 1.0s, 1.5s, 2.0s)
-    Fractional(u32),
-
-    /// Effect will apply immediately AND every 1/Nth interval
-    /// eg Fractional(4) and an execution time of 2 seconds => (0.0s, 0.5s, 1.0s, 1.5s, 2.0s)
-    InstantAndFractional(u32),
+pub enum AlgorithmEffect {
+    Extract { efficacy: AlgorithmEffectValue, }
 }
 
 pub trait Executor {
@@ -167,6 +186,7 @@ pub trait Executor {
     fn is_complete(&self) -> bool;
 }
 
+#[derive(Clone)]
 struct AlgorithmExecutor {
     algorithm: Algorithm,
     instruction_pointer: u32,
@@ -212,6 +232,7 @@ impl Executor for AlgorithmExecutor {
     }
 }
 
+#[derive(Clone)]
 struct AlgorithmProcedureExecutor {
     algorithms: Vec<Algorithm>,
     algorithm_executor: AlgorithmExecutor,
@@ -268,6 +289,7 @@ impl Executor for AlgorithmProcedureExecutor {
     }
 }
 
+#[derive(Clone)]
 pub struct ScriptExecutor {
     algorithm_procedure_executors: Vec<AlgorithmProcedureExecutor>,
     is_paused: bool,
@@ -379,7 +401,7 @@ mod tests {
             instruction_count: 5,
             instruction_effects: BTreeMap::from([
                 (1, vec![
-                    AlgorithmEffect(AlgorithmEffectType::Extract { efficacy: 1, }, AlgorithmApplicationType::Instant)
+                    AlgorithmEffect::Extract { efficacy: 1.into(), }
                 ]),
             ]),
         };
@@ -388,7 +410,7 @@ mod tests {
             instruction_count: 10,
             instruction_effects: BTreeMap::from([
                 (5, vec![
-                    AlgorithmEffect(AlgorithmEffectType::Extract { efficacy: 1, }, AlgorithmApplicationType::DelayMs(50))
+                    AlgorithmEffect::Extract { efficacy: 1.into(), }
                 ]),
             ]),
         };
@@ -397,18 +419,19 @@ mod tests {
             algorithms: vec![algorithm2, algorithm1].into(),
         };
 
-        let script = Script {
-            procedures: vec![procedure],
-        };
+        let script = Script::new(
+            ScriptId::Id(1),
+            vec![procedure],
+        );
 
         let expected_effects_on_tick = BTreeMap::from([
             // Algorithm 1 = first algorithm, so no delay
             (1, vec![
-                AlgorithmEffect(AlgorithmEffectType::Extract { efficacy: 1, }, AlgorithmApplicationType::Instant)
+                AlgorithmEffect::Extract { efficacy: 1.into(), }
             ]),
             // Algorithm 2 = second algorithm, so 5 instructions for algorithm 1 then 5 instructions until the effect
             (10, vec![
-                AlgorithmEffect(AlgorithmEffectType::Extract { efficacy: 1, }, AlgorithmApplicationType::DelayMs(50))
+                AlgorithmEffect::Extract { efficacy: 1.into(), }
             ]),
         ]);
 

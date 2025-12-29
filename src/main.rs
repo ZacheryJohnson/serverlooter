@@ -7,17 +7,21 @@ mod inventory;
 mod macros;
 
 use std::sync::{Arc, Mutex};
-use bevy::asset::io::ErasedAssetWriter;
+use std::time::{Duration, Instant};
 use crate::macros::get_localized;
 use bevy::prelude::*;
 use bevy::DefaultPlugins;
-use bevy::ecs::relationship::RelationshipSourceCollection;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
+use bevy_egui::egui::Widget;
 use unic_langid::LanguageIdentifier;
 use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inventory};
-use crate::script::{Script, ScriptCreatedEvent};
+use crate::script::{AlgorithmEffect, Executor, Script, ScriptCreatedEvent, ScriptExecutor};
 use crate::server::Server;
-use crate::ui::{Panel, MarketPanel, ServersPanel, ScriptsPanel};
+use crate::ui::{Panel, MarketPanel, ServersPanel, ScriptsPanel, ExploitPanel, RequestStartExploitEvent};
+
+/// Must cleanly factor into 1000, such that TIME_BETWEEN_TICKS isn't fractional.
+const TICKS_PER_SECOND: u8 = 20;
+const TIME_BETWEEN_TICKS: Duration = Duration::from_millis(1000 / TICKS_PER_SECOND as u64);
 
 enum TutorialProgression {
     /// The option to start with a tutorial hasn't been presented to the player yet.
@@ -126,6 +130,34 @@ impl TutorialProgression {
     }
 }
 
+pub struct ExploitTarget {
+    pub name: String,
+    pub server: Arc<Mutex<Server>>,
+}
+
+#[derive(Clone)]
+pub struct ActiveExploit {
+    pub target: Arc<Mutex<ExploitTarget>>,
+    pub script: Arc<Mutex<Script>>,
+    pub hosting_server: Arc<Mutex<Server>>,
+
+    script_executor: ScriptExecutor,
+}
+
+impl ActiveExploit {
+    pub fn new(target: Arc<Mutex<ExploitTarget>>, script: Arc<Mutex<Script>>, hosting_server: Arc<Mutex<Server>>) -> ActiveExploit {
+        let mut script_executor = script.lock().unwrap().clone().into_executor();
+        script_executor.start_execution();
+
+        ActiveExploit {
+            target,
+            script,
+            hosting_server,
+            script_executor,
+        }
+    }
+}
+
 #[derive(Resource)]
 struct PlayerState {
     progression: TutorialProgression,
@@ -133,7 +165,10 @@ struct PlayerState {
     credits: u128,
     inventory: Inventory,
     servers: Vec<Arc<Mutex<Server>>>,
+    known_targets: Vec<Arc<Mutex<ExploitTarget>>>,
+    active_exploits: Vec<ActiveExploit>,
     scripts: Vec<Arc<Mutex<Script>>>,
+    last_tick: Instant,
 }
 
 #[derive(Resource)]
@@ -145,7 +180,8 @@ enum ActivePanel {
     Home,
     Market,
     Servers,
-    Scripts
+    Scripts,
+    Exploit,
 }
 
 #[derive(Resource)]
@@ -154,6 +190,7 @@ struct UiState {
     market_panel_state: MarketPanel,
     server_panel_state: ServersPanel,
     scripts_panel_state: ScriptsPanel,
+    exploit_panel_state: ExploitPanel,
 }
 
 fn main() {
@@ -162,10 +199,12 @@ fn main() {
         .add_plugins(EguiPlugin::default())
         .add_systems(Startup, setup_camera_system)
         .add_systems(EguiPrimaryContextPass, (update_ui, tutorial_ui_system))
+        .add_systems(Update, tick_player_state)
         .add_observer(tutorial_on_script_created)
         .add_observer(on_script_created)
         .add_observer(on_inventory_item_added)
         .add_observer(on_inventory_item_removed)
+        .add_observer(on_request_start_exploit)
         .insert_resource(PlayerState {
             progression: TutorialProgression::None,
             language_identifier: "en-US".parse().unwrap(),
@@ -179,7 +218,18 @@ fn main() {
                     stats: vec![],
                 }))
             ],
+            known_targets: vec![Arc::new(Mutex::new(ExploitTarget {
+                name: "KawaiiCo".to_string(),
+                server: Arc::new(Mutex::new(Server {
+                    name: "KawaiiCo".to_string(),
+                    threads: 1,
+                    clock_speed_hz: 1_600_000_000,
+                    stats: vec![]
+                }))
+            }))],
+            active_exploits: vec![],
             scripts: vec![],
+            last_tick: Instant::now(),
         })
         .insert_resource(TestWindowState { open: true })
         .insert_resource(UiState {
@@ -187,6 +237,7 @@ fn main() {
             market_panel_state: MarketPanel {},
             server_panel_state: ServersPanel {},
             scripts_panel_state: ScriptsPanel::new(),
+            exploit_panel_state: ExploitPanel::new(),
         })
         .run();
 }
@@ -217,6 +268,16 @@ fn update_main_panel(
     ui_state: &mut UiState,
     player_state: &mut PlayerState,
 ) -> Result {
+    egui::TopBottomPanel::top("menu_panel").show(ctx, |ui| {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+            ui.horizontal(|ui| {
+                egui::Label::new(format!("${}", player_state.credits))
+                    .halign(egui::Align::RIGHT)
+                    .ui(ui);
+            });
+        });
+    });
+
     egui::CentralPanel::default().show(ctx, |ui| {
         match ui_state.active_panel {
             ActivePanel::Home => {
@@ -230,6 +291,9 @@ fn update_main_panel(
             }
             ActivePanel::Scripts => {
                 ui_state.scripts_panel_state.update(commands, ctx, ui, player_state);
+            }
+            ActivePanel::Exploit => {
+                ui_state.exploit_panel_state.update(commands, ctx, ui, player_state);
             }
         }
     });
@@ -287,7 +351,7 @@ fn update_side_panel(
                         player_state.progression = TutorialProgression::ExploitServersShown;
                     }
 
-                    // ZJ-TODO: show servers
+                    ui_state.active_panel = ActivePanel::Exploit;
                 }
             });
         }
@@ -296,6 +360,22 @@ fn update_side_panel(
             ui.label(loc!(player_state, "ui_menu_sidebar_glossary_tab"));
         }
     });
+
+    Ok(())
+}
+
+fn on_request_start_exploit(
+    evt: On<RequestStartExploitEvent>,
+    mut player_state: ResMut<PlayerState>,
+) -> Result {
+    let target = evt.target.clone();
+    let script = evt.script.clone();
+    let server = evt.server.clone();
+
+    // ZJ-TODO: validate server can accommodate another process
+    // ZJ-TODO: validate server can meets thread minimums
+
+    player_state.active_exploits.push(ActiveExploit::new(target, script, server));
 
     Ok(())
 }
@@ -445,4 +525,42 @@ fn tutorial_ui_system(
     }
 
     Ok(())
+}
+
+fn tick_player_state(
+    mut player_state: ResMut<PlayerState>,
+) {
+    // Only tick at a fixed rate
+    // ZJ-TODO: this breaks if we haven't ticked in a while, such as if we're 2x larger than TIME_BETWEEN_TICKS
+    if Instant::now().duration_since(player_state.last_tick) < TIME_BETWEEN_TICKS {
+        return;
+    }
+
+    player_state.last_tick = Instant::now();
+
+    let mut pending_effects = vec![];
+    for active_exploit in &mut player_state.active_exploits {
+        let new_effects = active_exploit.script_executor.tick_execution();
+        if active_exploit.script_executor.is_complete() {
+            active_exploit.script_executor = active_exploit.script.lock().unwrap().executor();
+            active_exploit.script_executor.start_execution();
+        }
+        pending_effects.push((active_exploit.clone(), new_effects));
+    }
+
+    for (active_exploit, pending_effects) in pending_effects {
+        for pending_effect in &pending_effects {
+            match pending_effect {
+                AlgorithmEffect::Extract { efficacy } => {
+                    let value = efficacy.make_value();
+                    let target_stats = lock_and_clone!(active_exploit.target, server, stats);
+
+                    // ZJ-TODO: Get target server stats to make an actual "defense" roll.
+                    let target_extract_defense = 3;
+                    let extract_value = (value - target_extract_defense).max(0) as u128;
+                    player_state.credits += extract_value;
+                }
+            }
+        }
+    }
 }

@@ -31,12 +31,13 @@ from the target server, while a detection suppression algorithm might slow or
 prevent the server from disconnecting the hacker.
 
 Scripts combine these algorithms into runnable programs that are used to hack
-servers. A script may consist of one or more algorithms.
+servers. A script may consist of one or more algorithms, and these algorithms may
+be run in parallel or in series. The maximum parallelization of a script dictates
+the number of threads required to run it. For example, to run three algorithms
+concurrently, the server running the script must have at least three threads.
+A script cannot be run on a server with fewer threads than required.
 
-Some scripts may be more powerful than others, and have costs associated with
-running them.
-
-# First Time User Experience
+# Tutorial
 
 1. Landing screen shows a login page that autopopulates, presumably done by the
 player. A fictional server management UI loads, showing the players server 

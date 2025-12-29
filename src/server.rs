@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct Server {
     pub name: String,
 
@@ -10,6 +11,18 @@ pub struct Server {
     pub stats: Vec<ServerStatInstance>,
 }
 
+impl Server {
+    pub fn empty() -> Server {
+        Server {
+            name: "".to_string(),
+            threads: 0,
+            clock_speed_hz: 0,
+            stats: vec![],
+        }
+    }
+}
+
+#[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub enum ServerStatSource {
 
 }
@@ -21,9 +34,10 @@ pub enum ServerStatType {
     ExtractionResistance,
 }
 
-pub struct ServerStatInstance(ServerStatSource, ServerStatType, u32);
+#[derive(Hash, Eq, PartialEq, Clone, Debug)]
+pub struct ServerStatInstance(ServerStatSource, ServerStatType, i32);
 impl ServerStatInstance {
-    pub fn new(source: ServerStatSource, stat_type: ServerStatType, value: u32) -> ServerStatInstance {
+    pub fn new(source: ServerStatSource, stat_type: ServerStatType, value: i32) -> ServerStatInstance {
         ServerStatInstance(source, stat_type, value)
     }
 
@@ -35,7 +49,7 @@ impl ServerStatInstance {
         &self.1
     }
 
-    pub fn value(&self) -> u32 {
+    pub fn value(&self) -> i32 {
         self.2
     }
 }

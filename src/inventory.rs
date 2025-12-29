@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use bevy::prelude::{Event, On, ResMut};
 use crate::PlayerState;
-use crate::script::{Algorithm, AlgorithmApplicationType, AlgorithmEffect, AlgorithmEffectType};
+use crate::script::{Algorithm, AlgorithmEffect};
 
 pub enum InventoryItem {
     Algorithm(Algorithm),
@@ -29,10 +29,7 @@ impl Inventory {
                     instruction_count: 10,
                     instruction_effects: BTreeMap::from([
                         (10, vec![
-                            AlgorithmEffect::new(
-                                AlgorithmEffectType::Extract { efficacy: 10 },
-                                AlgorithmApplicationType::Instant
-                            )
+                            AlgorithmEffect::Extract { efficacy: (5..10).into() },
                         ])
                     ]),
                 }
