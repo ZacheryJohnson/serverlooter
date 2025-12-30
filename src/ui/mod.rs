@@ -46,10 +46,23 @@ impl Panel for ServersPanel {
                         "ui_server_thread_count",
                         [("thread_count".to_string(), server.threads.into())].into()
                     ));
+
+                    let server_speed_digits = server.clock_speed_hz.ilog10();
+                    let (unit, clock_speed) = if server_speed_digits >= 9 {
+                        ("ghz", server.clock_speed_hz as f32 / 1_000_000_000.0)
+                    } else if server_speed_digits >= 6 && server_speed_digits < 9 {
+                        ("mhz", server.clock_speed_hz as f32 / 1_000_000.0)
+                    } else {
+                        ("hz", server.clock_speed_hz as f32)
+                    };
+
                     vert_ui.label(loc!(
                         player_state,
-                        "ui_server_clock_speed_ghz",
-                        [("clock_speed_ghz".to_string(), (server.clock_speed_hz as f32 / 1_000_000_000.0).into())].into()
+                        "ui_server_clock_speed",
+                        [
+                            ("unit".to_string(), unit.into()),
+                            ("clock_speed".to_string(), clock_speed.into())
+                        ].into()
                     ));
 
                     let active_exploits_on_this_server: Vec<&ActiveExploit> = player_state

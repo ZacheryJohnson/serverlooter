@@ -214,7 +214,7 @@ fn main() {
                 Arc::new(Mutex::new(Server {
                     name: "fe80:0070::".to_string(),
                     threads: 2,
-                    clock_speed_hz: 2_000_000_000,
+                    clock_speed_hz: 2_000_000,
                     stats: vec![],
                 }))
             ],
@@ -223,7 +223,7 @@ fn main() {
                 server: Arc::new(Mutex::new(Server {
                     name: "KawaiiCo".to_string(),
                     threads: 1,
-                    clock_speed_hz: 1_600_000_000,
+                    clock_speed_hz: 1_600_000,
                     stats: vec![]
                 }))
             }))],
@@ -531,8 +531,8 @@ fn tick_player_state(
     mut player_state: ResMut<PlayerState>,
 ) {
     // Only tick at a fixed rate
-    // ZJ-TODO: this breaks if we haven't ticked in a while, such as if we're 2x larger than TIME_BETWEEN_TICKS
-    if Instant::now().duration_since(player_state.last_tick) < TIME_BETWEEN_TICKS {
+    let time_since_last_tick = Instant::now().duration_since(player_state.last_tick);
+    if time_since_last_tick < TIME_BETWEEN_TICKS {
         return;
     }
 
@@ -540,7 +540,10 @@ fn tick_player_state(
 
     let mut pending_effects = vec![];
     for active_exploit in &mut player_state.active_exploits {
-        let new_effects = active_exploit.script_executor.tick_execution();
+        let server_speed = lock_and_clone!(active_exploit.hosting_server, clock_speed_hz);
+        let ticks_since_last = (server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
+
+        let new_effects = active_exploit.script_executor.tick_execution(ticks_since_last);
         if active_exploit.script_executor.is_complete() {
             active_exploit.script_executor = active_exploit.script.lock().unwrap().executor();
             active_exploit.script_executor.start_execution();

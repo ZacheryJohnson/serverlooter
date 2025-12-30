@@ -26,12 +26,12 @@ impl Inventory {
         Inventory {
             algorithms: vec![
                 Algorithm {
-                    instruction_count: 10,
-                    instruction_effects: BTreeMap::from([
-                        (10, vec![
+                    instruction_count: 1_000_000,
+                    instruction_effects: vec![
+                        (1_000_000, vec![
                             AlgorithmEffect::Extract { efficacy: (5..10).into() },
                         ])
-                    ]),
+                    ],
                 }
             ],
         }

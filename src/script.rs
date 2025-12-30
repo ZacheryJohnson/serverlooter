@@ -128,10 +128,11 @@ impl ScriptBuilder {
 pub struct Algorithm {
     /// How many instructions does this algorithm contain?
     /// Once all instructions are executed, the algorithm is considered complete
-    pub instruction_count: u32,
+    pub instruction_count: u64,
 
     /// What effects are applied on what instruction?
-    pub instruction_effects: BTreeMap<u32, Vec<AlgorithmEffect>>,
+    /// This could be a hashmap, but with so few effects per algorithm this is plenty efficient
+    pub instruction_effects: Vec<(u64, Vec<AlgorithmEffect>)>,
 }
 
 
@@ -182,14 +183,19 @@ pub enum AlgorithmEffect {
 pub trait Executor {
     fn start_execution(&mut self);
     fn stop_execution(&mut self);
-    fn tick_execution(&mut self) -> Vec<AlgorithmEffect>;
+    // ZJ-TODO: this doesn't handle partial ticks
+    //          for example, if tick_count = 5, and we're on the last instruction
+    //          of an algorithm, the next algorithm in the procedure won't be ticked for 4
+    //          We'll instead currently "lose" 4 ticks.
+    //          The ticks should instead be re-applied to the next algorithm
+    fn tick_execution(&mut self, tick_count: u64) -> Vec<AlgorithmEffect>;
     fn is_complete(&self) -> bool;
 }
 
 #[derive(Clone)]
 struct AlgorithmExecutor {
     algorithm: Algorithm,
-    instruction_pointer: u32,
+    instruction_pointer: u64,
     is_paused: bool,
 }
 
@@ -212,19 +218,23 @@ impl Executor for AlgorithmExecutor {
         self.is_paused = true;
     }
 
-    fn tick_execution(&mut self) -> Vec<AlgorithmEffect> {
+    fn tick_execution(&mut self, tick_count: u64) -> Vec<AlgorithmEffect> {
         if self.is_paused {
            return vec![];
         }
 
-        self.instruction_pointer += 1;
-
-        self
+        let next_effects = self
             .algorithm
             .instruction_effects
-            .get(&self.instruction_pointer)
-            .unwrap_or(&vec![])
-            .to_owned()
+            .iter()
+            .filter(|(instruction_count, _)| *instruction_count > self.instruction_pointer && self.instruction_pointer + tick_count >= *instruction_count)
+            .map(|(_, effects)| effects.to_owned())
+            .flatten()
+            .collect::<Vec<AlgorithmEffect>>();
+
+        self.instruction_pointer += tick_count;
+
+        next_effects
     }
 
     fn is_complete(&self) -> bool {
@@ -267,7 +277,7 @@ impl Executor for AlgorithmProcedureExecutor {
         self.algorithm_executor.stop_execution();
     }
 
-    fn tick_execution(&mut self) -> Vec<AlgorithmEffect> {
+    fn tick_execution(&mut self, tick_count: u64) -> Vec<AlgorithmEffect> {
         if self.is_paused {
             return vec![];
         }
@@ -281,7 +291,7 @@ impl Executor for AlgorithmProcedureExecutor {
             self.algorithm_executor.start_execution();
         }
 
-        self.algorithm_executor.tick_execution()
+        self.algorithm_executor.tick_execution(tick_count)
     }
 
     fn is_complete(&self) -> bool {
@@ -323,7 +333,7 @@ impl Executor for ScriptExecutor {
         }
     }
 
-    fn tick_execution(&mut self) -> Vec<AlgorithmEffect> {
+    fn tick_execution(&mut self, tick_count: u64) -> Vec<AlgorithmEffect> {
         if self.is_paused {
             return vec![];
         }
@@ -331,7 +341,7 @@ impl Executor for ScriptExecutor {
         let mut new_effects = vec![];
 
         for procedure_executor in &mut self.algorithm_procedure_executors {
-            new_effects.extend(procedure_executor.tick_execution());
+            new_effects.extend(procedure_executor.tick_execution(tick_count));
         }
 
         new_effects
@@ -359,11 +369,11 @@ mod tests {
         executor.start_execution();
         assert_eq!(executor.is_complete(), false);
 
-        executor.tick_execution();
+        executor.tick_execution(1);
         assert_eq!(executor.is_complete(), false);
-        executor.tick_execution();
+        executor.tick_execution(1);
         assert_eq!(executor.is_complete(), false);
-        executor.tick_execution();
+        executor.tick_execution(1);
         assert_eq!(executor.is_complete(), true);
     }
 
@@ -390,7 +400,7 @@ mod tests {
         assert_eq!(executor.is_complete(), false);
 
         for i in 1..=6 {
-            executor.tick_execution();
+            executor.tick_execution(1);
             assert_eq!(executor.is_complete(), i == 6);
         }
     }
@@ -399,20 +409,20 @@ mod tests {
     fn script_executor_can_complete() {
         let algorithm1 = Algorithm {
             instruction_count: 5,
-            instruction_effects: BTreeMap::from([
+            instruction_effects: vec![
                 (1, vec![
                     AlgorithmEffect::Extract { efficacy: 1.into(), }
                 ]),
-            ]),
+            ],
         };
 
         let algorithm2 = Algorithm {
             instruction_count: 10,
-            instruction_effects: BTreeMap::from([
+            instruction_effects: vec![
                 (5, vec![
-                    AlgorithmEffect::Extract { efficacy: 1.into(), }
+                    AlgorithmEffect::Extract { efficacy: 2.into(), }
                 ]),
-            ]),
+            ],
         };
 
         let procedure = AlgorithmProcedure {
@@ -431,7 +441,7 @@ mod tests {
             ]),
             // Algorithm 2 = second algorithm, so 5 instructions for algorithm 1 then 5 instructions until the effect
             (10, vec![
-                AlgorithmEffect::Extract { efficacy: 1.into(), }
+                AlgorithmEffect::Extract { efficacy: 2.into(), }
             ]),
         ]);
 
@@ -450,7 +460,7 @@ mod tests {
             current_tick += 1;
 
             let expected_effects = expected_effects_on_tick.get(&current_tick).unwrap_or(&vec![]).to_owned();
-            let actual_effects = executor.tick_execution();
+            let actual_effects = executor.tick_execution(1);
 
             assert_eq!(expected_effects, actual_effects, "Tick {current_tick}");
         }
