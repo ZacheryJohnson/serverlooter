@@ -99,24 +99,26 @@ impl ScriptsPanel {
 
 impl Panel for ScriptsPanel {
     fn update(&mut self, commands: &mut Commands, ctx: &Context, ui: &mut Ui, player_state: &PlayerState) {
-        bevy_egui::egui::SidePanel::left("scripts_menu").show(ctx, |ui| {
+        egui::SidePanel::left("scripts_menu").show(ctx, |ui| {
             ui.collapsing(loc!(player_state, "ui_algorithm_scripts_header"), |ui| {
                 for script in &player_state.scripts {
                     let script = script.lock().unwrap();
 
                     // ZJ-TODO: localize
                     // ZJ-TODO: this logic breaks if procedures can merge
-                    ui.label(format!("Required Threads: {}", script.procedures.len()));
-                    for procedure in &script.procedures {
-                        for algorithm in &procedure.algorithms {
-                            for (_, effects) in &algorithm.instruction_effects {
-                                for effect in effects {
-                                    // ZJ-TODO: localize
-                                    ui.label(format!("{effect:?}"));
+                    ui.group(|ui| {
+                        ui.label(format!("Required Threads: {}", script.procedures.len()));
+                        for procedure in &script.procedures {
+                            for algorithm in &procedure.algorithms {
+                                for (_, effects) in &algorithm.instruction_effects {
+                                    for effect in effects {
+                                        // ZJ-TODO: localize
+                                        ui.label(format!("{effect}"));
+                                    }
                                 }
                             }
                         }
-                    }
+                    });
                 }
             });
 
@@ -141,7 +143,7 @@ impl Panel for ScriptsPanel {
                             for (_, effects) in &algorithm.instruction_effects {
                                 for effect in effects {
                                     // ZJ-TODO: localize
-                                    ui.label(format!("{effect:?}"));
+                                    ui.label(format!("{effect}"));
                                 }
                             }
                         });
@@ -157,7 +159,7 @@ impl Panel for ScriptsPanel {
             });
         });
 
-        bevy_egui::egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ctx, |ui| {
             let script = self.script_builder.current_script();
 
             let mut algorithm_to_remove: Option<Algorithm> = None;
@@ -176,7 +178,7 @@ impl Panel for ScriptsPanel {
                         for (_, effects) in &algorithm.instruction_effects {
                             for effect in effects {
                                 // ZJ-TODO: localize
-                                ui.label(RichText::new(format!("{effect:?}")).color(Color32::GOLD));
+                                ui.label(RichText::new(format!("{effect}")).color(Color32::GOLD));
                             }
                         }
                     });

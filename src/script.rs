@@ -146,6 +146,19 @@ pub enum AlgorithmEffectValue {
     RangeInclusive(i32, i32),
 }
 
+impl Display for AlgorithmEffectValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AlgorithmEffectValue::Static(val) => {
+                write!(f, "{val}")
+            }
+            AlgorithmEffectValue::RangeInclusive(low, upp) => {
+                write!(f, "{low}-{upp}")
+            }
+        }
+    }
+}
+
 impl AlgorithmEffectValue {
     /// Gets or generates a value.
     /// Repeated calls may result in different values in the case of range values (such as [RangeInclusive](AlgorithmEffectValue::RangeInclusive)).
@@ -177,7 +190,17 @@ impl From<Range<i32>> for AlgorithmEffectValue {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum AlgorithmEffect {
-    Extract { efficacy: AlgorithmEffectValue, }
+    Extract { potency: AlgorithmEffectValue, }
+}
+
+impl Display for AlgorithmEffect {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AlgorithmEffect::Extract { potency } => {
+                write!(f, "Extract {potency}")
+            },
+        }
+    }
 }
 
 pub trait Executor {
@@ -411,7 +434,7 @@ mod tests {
             instruction_count: 5,
             instruction_effects: vec![
                 (1, vec![
-                    AlgorithmEffect::Extract { efficacy: 1.into(), }
+                    AlgorithmEffect::Extract { potency: 1.into(), }
                 ]),
             ],
         };
@@ -420,7 +443,7 @@ mod tests {
             instruction_count: 10,
             instruction_effects: vec![
                 (5, vec![
-                    AlgorithmEffect::Extract { efficacy: 2.into(), }
+                    AlgorithmEffect::Extract { potency: 2.into(), }
                 ]),
             ],
         };
@@ -437,11 +460,11 @@ mod tests {
         let expected_effects_on_tick = BTreeMap::from([
             // Algorithm 1 = first algorithm, so no delay
             (1, vec![
-                AlgorithmEffect::Extract { efficacy: 1.into(), }
+                AlgorithmEffect::Extract { potency: 1.into(), }
             ]),
             // Algorithm 2 = second algorithm, so 5 instructions for algorithm 1 then 5 instructions until the effect
             (10, vec![
-                AlgorithmEffect::Extract { efficacy: 2.into(), }
+                AlgorithmEffect::Extract { potency: 2.into(), }
             ]),
         ]);
 

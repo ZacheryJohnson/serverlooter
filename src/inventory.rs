@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use bevy::prelude::{Event, On, ResMut};
 use crate::PlayerState;
 use crate::script::{Algorithm, AlgorithmEffect};
@@ -29,7 +28,7 @@ impl Inventory {
                     instruction_count: 1_000_000,
                     instruction_effects: vec![
                         (1_000_000, vec![
-                            AlgorithmEffect::Extract { efficacy: (5..10).into() },
+                            AlgorithmEffect::Extract { potency: (5..10).into() },
                         ])
                     ],
                 }

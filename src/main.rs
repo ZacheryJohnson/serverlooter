@@ -554,8 +554,8 @@ fn tick_player_state(
     for (active_exploit, pending_effects) in pending_effects {
         for pending_effect in &pending_effects {
             match pending_effect {
-                AlgorithmEffect::Extract { efficacy } => {
-                    let value = efficacy.make_value();
+                AlgorithmEffect::Extract { potency } => {
+                    let value = potency.make_value();
                     let target_stats = lock_and_clone!(active_exploit.target, server, stats);
 
                     // ZJ-TODO: Get target server stats to make an actual "defense" roll.
