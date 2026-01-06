@@ -16,7 +16,7 @@ use bevy_egui::egui::Widget;
 use unic_langid::LanguageIdentifier;
 use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inventory};
 use crate::script::{AlgorithmEffect, Executor, Script, ScriptCreatedEvent, ScriptExecutor};
-use crate::server::Server;
+use crate::server::{Server, ServerStatInstance, ServerStatSource, ServerStatType};
 use crate::ui::{Panel, MarketPanel, ServersPanel, ScriptsPanel, ExploitPanel, RequestStartExploitEvent};
 
 /// Must cleanly factor into 1000, such that TIME_BETWEEN_TICKS isn't fractional.
@@ -224,7 +224,9 @@ fn main() {
                     name: "KawaiiCo".to_string(),
                     threads: 1,
                     clock_speed_hz: 1_600_000,
-                    stats: vec![]
+                    stats: vec![
+                        ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::ExtractionResistance, 3),
+                    ]
                 }))
             }))],
             active_exploits: vec![],
@@ -556,10 +558,11 @@ fn tick_player_state(
             match pending_effect {
                 AlgorithmEffect::Extract { potency } => {
                     let value = potency.make_value();
-                    let target_stats = lock_and_clone!(active_exploit.target, server, stats);
+                    let target_server = lock_and_clone!(active_exploit.target, server);
+                    let target_server = target_server.lock().unwrap();
+                    let target_stats = target_server.stats();
 
-                    // ZJ-TODO: Get target server stats to make an actual "defense" roll.
-                    let target_extract_defense = 3;
+                    let target_extract_defense = target_stats.value_of(ServerStatType::ExtractionResistance);
                     let extract_value = (value - target_extract_defense).max(0) as u128;
                     player_state.credits += extract_value;
                 }

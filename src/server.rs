@@ -1,3 +1,5 @@
+use crate::script::ScriptId;
+
 #[derive(Clone)]
 pub struct Server {
     pub name: String,
@@ -20,13 +22,41 @@ impl Server {
             stats: vec![],
         }
     }
+
+    pub fn stats(&'_ self) -> ServerStats<'_> {
+        ServerStats::from(&self.stats)
+    }
+}
+
+pub struct ServerStats<'stats> {
+    stats: &'stats Vec<ServerStatInstance>,
+}
+
+impl<'s> ServerStats<'s> {
+    pub fn from(stats: &'s Vec<ServerStatInstance>) -> ServerStats<'s> {
+        ServerStats { stats }
+    }
+
+    pub fn value_of(&self, stat_type: ServerStatType) -> i32 {
+        self
+            .stats
+            .iter()
+            .filter(|stat| stat.stat_type() == &stat_type)
+            .map(|stat| stat.value())
+            .sum()
+    }
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub enum ServerStatSource {
+    /// The stat is innate to the server.
+    Innate,
 
+    /// The stat is being modified by a script.
+    Script(ScriptId),
 }
 
+/// All stats that can exist on a server.
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub enum ServerStatType {
     ReconResistance,

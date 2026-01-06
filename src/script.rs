@@ -37,7 +37,7 @@ impl AlgorithmProcedure {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ScriptId {
     Invalid,
     Id(u64),
