@@ -12,12 +12,13 @@ use crate::macros::get_localized;
 use bevy::prelude::*;
 use bevy::DefaultPlugins;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
-use bevy_egui::egui::Widget;
+use bevy_egui::egui::{Align, Direction, Widget};
 use unic_langid::LanguageIdentifier;
+use uuid::Uuid;
 use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inventory};
 use crate::script::{AlgorithmEffect, Executor, Script, ScriptCreatedEvent, ScriptExecutor};
 use crate::server::{Server, ServerStatInstance, ServerStatSource, ServerStatType};
-use crate::ui::{Panel, MarketPanel, ServersPanel, ScriptsPanel, ExploitPanel, RequestStartExploitEvent};
+use crate::ui::{Panel, MarketPanel, ServersPanel, ScriptsPanel, ExploitPanel, RequestStartExploitEvent, RequestStopExploitEvent};
 
 /// Must cleanly factor into 1000, such that TIME_BETWEEN_TICKS isn't fractional.
 const TICKS_PER_SECOND: u8 = 20;
@@ -131,7 +132,7 @@ impl TutorialProgression {
 }
 
 pub struct ExploitTarget {
-    pub name: String,
+    pub id: Uuid,
     pub server: Arc<Mutex<Server>>,
 }
 
@@ -141,6 +142,7 @@ pub struct ActiveExploit {
     pub script: Arc<Mutex<Script>>,
     pub hosting_server: Arc<Mutex<Server>>,
 
+    id: Uuid,
     script_executor: ScriptExecutor,
 }
 
@@ -149,12 +151,23 @@ impl ActiveExploit {
         let mut script_executor = script.lock().unwrap().clone().into_executor();
         script_executor.start_execution();
 
+        let id = Uuid::new_v4();
+
         ActiveExploit {
             target,
             script,
             hosting_server,
+            id,
             script_executor,
         }
+    }
+
+    pub fn progress(&self) -> u64 {
+        self.script_executor.progress()
+    }
+
+    pub fn total_instructions(&self) -> u64 {
+        self.script_executor.total_instructions()
     }
 }
 
@@ -174,6 +187,11 @@ struct PlayerState {
 #[derive(Resource)]
 struct TestWindowState {
     open: bool,
+}
+
+pub struct ActiveExploitWindow {
+    open: bool,
+    active_exploit: Arc<Mutex<ActiveExploit>>,
 }
 
 enum ActivePanel {
@@ -205,6 +223,7 @@ fn main() {
         .add_observer(on_inventory_item_added)
         .add_observer(on_inventory_item_removed)
         .add_observer(on_request_start_exploit)
+        .add_observer(on_request_stop_exploit)
         .insert_resource(PlayerState {
             progression: TutorialProgression::None,
             language_identifier: "en-US".parse().unwrap(),
@@ -219,7 +238,7 @@ fn main() {
                 }))
             ],
             known_targets: vec![Arc::new(Mutex::new(ExploitTarget {
-                name: "KawaiiCo".to_string(),
+                id: Uuid::new_v4(),
                 server: Arc::new(Mutex::new(Server {
                     name: "KawaiiCo".to_string(),
                     threads: 1,
@@ -257,6 +276,28 @@ fn update_ui(
     // Panels need the same context I guess?
     let ctx = context.ctx_mut()?;
     update_side_panel(ctx, &mut ui_state, &mut player_state)?;
+
+    for active_exploit in &player_state.active_exploits {
+        let mut xd = true;
+        let window = egui::Window::new("Active Exploit")
+            .id(format!("active_exploit_{}", active_exploit.id.to_string()).into())
+            .fade_in(true)
+            .fade_out(true)
+            .open(&mut xd);
+        window.show(&ctx, |ui| {
+            ui.label(format!("Your Server: {}", lock_and_clone!(active_exploit.hosting_server, name)));
+            ui.label(format!("Target Server: {}", lock_and_clone!(active_exploit.target, server, name)));
+            egui::widgets::ProgressBar::new(active_exploit.progress() as f32 / active_exploit.total_instructions() as f32)
+                .desired_width(ui.available_width() / 2.0)
+                .show_percentage()
+                .ui(ui);
+            if ui.button(loc!(player_state, "ui_confirmation_stop")).clicked() {
+                commands.trigger(RequestStopExploitEvent {
+                    exploit_id: active_exploit.id,
+                });
+            }
+        });
+    }
 
     // Main panel must be last
     update_main_panel(&mut commands, ctx, &mut ui_state, &mut player_state)?;
@@ -378,6 +419,15 @@ fn on_request_start_exploit(
     // ZJ-TODO: validate server can meets thread minimums
 
     player_state.active_exploits.push(ActiveExploit::new(target, script, server));
+
+    Ok(())
+}
+
+fn on_request_stop_exploit(
+    evt: On<RequestStopExploitEvent>,
+    mut player_state: ResMut<PlayerState>,
+) -> Result {
+    player_state.active_exploits.retain(|exploit| exploit.id != evt.exploit_id);
 
     Ok(())
 }

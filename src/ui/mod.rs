@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use bevy::prelude::{Commands, Event};
 use bevy_egui::egui;
-use crate::{get_localized, ActiveExploit, ExploitTarget};
+use crate::{get_localized, lock_and_clone, ActiveExploit, ExploitTarget};
 use bevy_egui::egui::{Color32, Context, RichText, Sense, Ui, Widget};
+use uuid::Uuid;
 use crate::{loc, PlayerState};
 use crate::inventory::{InventoryItem, InventoryItemAdded, InventoryItemRemoved};
 use crate::script::{Algorithm, Script, ScriptBuilder, ScriptCreatedEvent, ScriptId};
@@ -76,7 +77,7 @@ impl Panel for ServersPanel {
                     }
 
                     for exploit in active_exploits_on_this_server {
-                        let target_name = exploit.target.lock().unwrap().name.clone();
+                        let target_name = lock_and_clone!(exploit.target, server, name);
                         vert_ui.label(target_name);
                     }
                 });
@@ -217,6 +218,11 @@ pub struct RequestStartExploitEvent {
     pub server: Arc<Mutex<Server>>,
 }
 
+#[derive(Event)]
+pub struct RequestStopExploitEvent {
+    pub exploit_id: Uuid,
+}
+
 pub struct ExploitPanel {
     pub selected_exploit_target: Option<Arc<Mutex<ExploitTarget>>>,
     pub selected_script: Option<Arc<Mutex<Script>>>,
@@ -238,12 +244,12 @@ impl Panel for ExploitPanel {
         ui.heading("Targets");
         ui.horizontal(|ui| {
            for exploit_target in &player_state.known_targets {
-               let exploit_target_name = exploit_target.lock().unwrap().name.clone();
+               let exploit_target_id = exploit_target.lock().unwrap().id;
                let is_selected = match self.selected_exploit_target {
-                   Some(ref target) => target.lock().unwrap().name == exploit_target_name,
+                   Some(ref target) => target.lock().unwrap().id == exploit_target_id,
                    None => false,
                };
-               if ui.selectable_label(is_selected, format!("{}", exploit_target_name)).clicked() {
+               if ui.selectable_label(is_selected, format!("{}", lock_and_clone!(exploit_target, server, name))).clicked() {
                     self.selected_exploit_target = Some(exploit_target.to_owned());
                }
            }

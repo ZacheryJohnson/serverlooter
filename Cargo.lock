@@ -4558,6 +4558,7 @@ dependencies = [
  "fluent-templates",
  "rand",
  "unic-langid",
+ "uuid",
 ]
 
 [[package]]

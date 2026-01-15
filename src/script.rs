@@ -135,6 +135,14 @@ pub struct Algorithm {
     pub instruction_effects: Vec<(u64, Vec<AlgorithmEffect>)>,
 }
 
+impl Default for Algorithm {
+    fn default() -> Self {
+        Algorithm {
+            instruction_count: 0,
+            instruction_effects: vec![],
+        }
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum AlgorithmEffectValue {
@@ -213,6 +221,8 @@ pub trait Executor {
     //          The ticks should instead be re-applied to the next algorithm
     fn tick_execution(&mut self, tick_count: u64) -> Vec<AlgorithmEffect>;
     fn is_complete(&self) -> bool;
+    fn progress(&self) -> u64;
+    fn total_instructions(&self) -> u64;
 }
 
 #[derive(Clone)]
@@ -255,7 +265,7 @@ impl Executor for AlgorithmExecutor {
             .flatten()
             .collect::<Vec<AlgorithmEffect>>();
 
-        self.instruction_pointer += tick_count;
+        self.instruction_pointer = (self.instruction_pointer + tick_count).min(self.algorithm.instruction_count);
 
         next_effects
     }
@@ -263,12 +273,23 @@ impl Executor for AlgorithmExecutor {
     fn is_complete(&self) -> bool {
         self.instruction_pointer >= self.algorithm.instruction_count
     }
+
+    fn progress(&self) -> u64 {
+        self.instruction_pointer
+    }
+
+    fn total_instructions(&self) -> u64 {
+        self.algorithm.instruction_count
+    }
 }
 
 #[derive(Clone)]
 struct AlgorithmProcedureExecutor {
     algorithms: Vec<Algorithm>,
+    finished_algorithms: Vec<Algorithm>,
     algorithm_executor: AlgorithmExecutor,
+
+    total_expected_instructions: u64,
     is_paused: bool,
 }
 
@@ -277,13 +298,21 @@ impl AlgorithmProcedureExecutor {
     /// If the procedure contains no algorithms, returns None.
     pub fn from(algorithm_procedure: AlgorithmProcedure) -> Option<AlgorithmProcedureExecutor> {
         let mut algorithms = algorithm_procedure.algorithms;
+
+        let total_expected_instructions = algorithms
+            .iter()
+            .map(|algo| algo.instruction_count)
+            .sum();
+
         let Some(first_algorithm) = algorithms.pop_back() else {
             return None;
         };
 
         Some(AlgorithmProcedureExecutor {
             algorithms: algorithms.into(),
+            finished_algorithms: Vec::new(),
             algorithm_executor: AlgorithmExecutor::from(first_algorithm),
+            total_expected_instructions,
             is_paused: true,
         })
     }
@@ -306,6 +335,14 @@ impl Executor for AlgorithmProcedureExecutor {
         }
 
         if self.algorithm_executor.is_complete() {
+            // Take old algorithm and store it so we can track overall progress
+            let finished_algorithm = std::mem::take(
+                &mut self.algorithm_executor.algorithm
+            );
+
+            self.finished_algorithms.push(finished_algorithm);
+
+            // Pop next algorithm and begin executing it
             let Some(next_algorithm) = self.algorithms.pop() else {
                 return vec![];
             };
@@ -319,6 +356,22 @@ impl Executor for AlgorithmProcedureExecutor {
 
     fn is_complete(&self) -> bool {
         self.algorithms.is_empty() && self.algorithm_executor.is_complete()
+    }
+
+    fn progress(&self) -> u64 {
+        let completed_instruction_count: u64 = self
+            .finished_algorithms
+            .iter()
+            .map(|algorithm| algorithm.instruction_count)
+            .sum();
+
+        let current_instruction_pointer = self.algorithm_executor.instruction_pointer;
+
+        completed_instruction_count + current_instruction_pointer
+    }
+
+    fn total_instructions(&self) -> u64 {
+        self.total_expected_instructions
     }
 }
 
@@ -372,6 +425,22 @@ impl Executor for ScriptExecutor {
 
     fn is_complete(&self) -> bool {
         self.algorithm_procedure_executors.iter().all(|exec| exec.is_complete())
+    }
+
+    fn progress(&self) -> u64 {
+        self
+            .algorithm_procedure_executors
+            .iter()
+            .map(|exec| exec.progress())
+            .sum()
+    }
+
+    fn total_instructions(&self) -> u64 {
+        self
+            .algorithm_procedure_executors
+            .iter()
+            .map(|exec| exec.total_instructions())
+            .sum()
     }
 }
 

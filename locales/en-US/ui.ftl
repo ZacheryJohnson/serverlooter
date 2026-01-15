@@ -3,6 +3,7 @@ ui_confirmation_no = No
 ui_confirmation_next = Next
 ui_confirmation_back = Back
 ui_confirmation_create = Create
+ui_confirmation_stop = Stop
 
 ui_menu_sidebar_market_tab = Market
 ui_menu_sidebar_servers_section = Servers
