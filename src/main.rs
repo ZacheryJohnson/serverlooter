@@ -8,7 +8,7 @@ mod macros;
 
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use crate::macros::get_localized;
+use crate::macros::{clock_speed_to_loc_args, get_localized};
 use bevy::prelude::*;
 use bevy::DefaultPlugins;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
@@ -141,13 +141,19 @@ pub struct ActiveExploit {
     pub target: Arc<Mutex<ExploitTarget>>,
     pub script: Arc<Mutex<Script>>,
     pub hosting_server: Arc<Mutex<Server>>,
+    pub clock_allocation_hz: u64,
 
     id: Uuid,
     script_executor: ScriptExecutor,
 }
 
 impl ActiveExploit {
-    pub fn new(target: Arc<Mutex<ExploitTarget>>, script: Arc<Mutex<Script>>, hosting_server: Arc<Mutex<Server>>) -> ActiveExploit {
+    pub fn new(
+        target: Arc<Mutex<ExploitTarget>>,
+        script: Arc<Mutex<Script>>,
+        hosting_server: Arc<Mutex<Server>>,
+        clock_allocation_hz: u64,
+    ) -> ActiveExploit {
         let mut script_executor = script.lock().unwrap().clone().into_executor();
         script_executor.start_execution();
 
@@ -157,6 +163,7 @@ impl ActiveExploit {
             target,
             script,
             hosting_server,
+            clock_allocation_hz,
             id,
             script_executor,
         }
@@ -217,7 +224,7 @@ fn main() {
         .add_plugins(EguiPlugin::default())
         .add_systems(Startup, setup_camera_system)
         .add_systems(EguiPrimaryContextPass, (update_ui, tutorial_ui_system))
-        .add_systems(Update, tick_player_state)
+        .add_systems(FixedUpdate, tick_player_state)
         .add_observer(tutorial_on_script_created)
         .add_observer(on_script_created)
         .add_observer(on_inventory_item_added)
@@ -287,6 +294,13 @@ fn update_ui(
         window.show(&ctx, |ui| {
             ui.label(format!("Your Server: {}", lock_and_clone!(active_exploit.hosting_server, name)));
             ui.label(format!("Target Server: {}", lock_and_clone!(active_exploit.target, server, name)));
+            ui.label(format!("Allocated CPU: {}",
+                loc!(
+                    player_state,
+                    "ui_server_clock_speed",
+                    clock_speed_to_loc_args(active_exploit.clock_allocation_hz)
+                )
+            ));
             egui::widgets::ProgressBar::new(active_exploit.progress() as f32 / active_exploit.total_instructions() as f32)
                 .desired_width(ui.available_width() / 2.0)
                 .show_percentage()
@@ -418,7 +432,26 @@ fn on_request_start_exploit(
     // ZJ-TODO: validate server can accommodate another process
     // ZJ-TODO: validate server can meets thread minimums
 
-    player_state.active_exploits.push(ActiveExploit::new(target, script, server));
+    // ZJ-TODO: actually implement way to shift resource allocation
+    //          for now, just time share equally
+    let target_server_name = lock_and_clone!(evt.server, name);
+    let new_total_processes = player_state
+        .active_exploits
+        .iter()
+        .filter(|exploit| lock_and_clone!(exploit.hosting_server, name) == target_server_name)
+        .count() as u64 + 1;
+
+    let new_clock_speed_per_process = lock_and_clone!(server, clock_speed_hz) / new_total_processes;
+
+    for existing_exploit in &mut player_state.active_exploits {
+        existing_exploit.clock_allocation_hz = new_clock_speed_per_process;
+    }
+
+    player_state.active_exploits.push(ActiveExploit::new(target, script, server, new_clock_speed_per_process));
+
+    if (matches!(player_state.progression, TutorialProgression::ExploitServersShown)) {
+        player_state.progression.advance();
+    }
 
     Ok(())
 }
@@ -532,10 +565,6 @@ fn tutorial_ui_system(
         TutorialProgression::ExploitServersShown => {
             window.show(context.ctx_mut()?, |ui| {
                 ui.label(loc!(player_state, "tutorial_stage_9"));
-
-                if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
-                    player_state.progression.advance();
-                }
             });
         }
         TutorialProgression::ExploitCorpAClicked => {
@@ -592,7 +621,9 @@ fn tick_player_state(
 
     let mut pending_effects = vec![];
     for active_exploit in &mut player_state.active_exploits {
-        let server_speed = lock_and_clone!(active_exploit.hosting_server, clock_speed_hz);
+        // ZJ-TODO: compared allocated speed vs server's current capacity
+        //          this should probably be refactored
+        let server_speed = active_exploit.clock_allocation_hz;
         let ticks_since_last = (server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
 
         let new_effects = active_exploit.script_executor.tick_execution(ticks_since_last);

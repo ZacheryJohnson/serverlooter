@@ -7,6 +7,7 @@ use bevy_egui::egui::{Color32, Context, RichText, Sense, Ui, Widget};
 use uuid::Uuid;
 use crate::{loc, PlayerState};
 use crate::inventory::{InventoryItem, InventoryItemAdded, InventoryItemRemoved};
+use crate::macros::clock_speed_to_loc_args;
 use crate::script::{Algorithm, Script, ScriptBuilder, ScriptCreatedEvent, ScriptId};
 use crate::server::Server;
 
@@ -42,28 +43,17 @@ impl Panel for ServersPanel {
             let grouping = ui.group(|group_ui| {
                 let vert = group_ui.vertical_centered(|vert_ui| {
                     vert_ui.heading(&server.name);
-                    vert_ui.label(loc!(
-                        player_state,
-                        "ui_server_thread_count",
-                        [("thread_count".to_string(), server.threads.into())].into()
-                    ));
-
-                    let server_speed_digits = server.clock_speed_hz.ilog10();
-                    let (unit, clock_speed) = if server_speed_digits >= 9 {
-                        ("ghz", server.clock_speed_hz as f32 / 1_000_000_000.0)
-                    } else if server_speed_digits >= 6 && server_speed_digits < 9 {
-                        ("mhz", server.clock_speed_hz as f32 / 1_000_000.0)
-                    } else {
-                        ("hz", server.clock_speed_hz as f32)
-                    };
 
                     vert_ui.label(loc!(
                         player_state,
                         "ui_server_clock_speed",
-                        [
-                            ("unit".to_string(), unit.into()),
-                            ("clock_speed".to_string(), clock_speed.into())
-                        ].into()
+                        clock_speed_to_loc_args(server.clock_speed_hz)
+                    ));
+
+                    vert_ui.label(loc!(
+                        player_state,
+                        "ui_server_thread_count",
+                        [("thread_count".to_string(), server.threads.into())].into()
                     ));
 
                     let active_exploits_on_this_server: Vec<&ActiveExploit> = player_state
@@ -78,7 +68,15 @@ impl Panel for ServersPanel {
 
                     for exploit in active_exploits_on_this_server {
                         let target_name = lock_and_clone!(exploit.target, server, name);
-                        vert_ui.label(target_name);
+                        vert_ui.label(format!(
+                            "{} at {}",
+                            target_name,
+                            loc!(
+                                player_state,
+                                "ui_server_clock_speed",
+                                clock_speed_to_loc_args(exploit.clock_allocation_hz)
+                            )
+                        ));
                     }
                 });
             });

@@ -41,3 +41,20 @@ pub fn get_localized(
 ) -> String {
     LOCALES.lookup_single_language(language_identifier, lookup_key, args).unwrap_or_default()
 }
+
+// ZJ-TODO: this should live somewhere else, but there isn't a better shared loc library atm
+pub fn clock_speed_to_loc_args(clock_speed_hz: u64) -> HashMap<String, FluentValue<'static>> {
+    let server_speed_digits = clock_speed_hz.ilog10();
+    let (unit, clock_speed) = if server_speed_digits >= 9 {
+        ("ghz", clock_speed_hz as f32 / 1_000_000_000.0)
+    } else if server_speed_digits >= 6 && server_speed_digits < 9 {
+        ("mhz", clock_speed_hz as f32 / 1_000_000.0)
+    } else {
+        ("hz", clock_speed_hz as f32)
+    };
+
+    [
+        ("unit".to_string(), unit.into()),
+        ("clock_speed".to_string(), clock_speed.into())
+    ].into()
+}

@@ -21,7 +21,6 @@ tutorial_stage_9 =
     Here are the servers whose connection details we just purchased.
     Each server contains different resources we can acquire and different defenses that we must overcome.
     Our script is best at *Extract*ing credits, so let's target the first server.
-    Click Next to simulate running against that server.
 tutorial_stage_10 =
     Ah, the sweet acrid scent of credits hitting your wallet. Nice work.
     Shall we see what CorpB has to offer?

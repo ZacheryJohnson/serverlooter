@@ -17,9 +17,9 @@ ui_window_tutorial_title = Tutorial
 
 ui_server_thread_count = Threads: {$thread_count}
 ui_server_clock_speed = { $unit ->
-    [ghz] Speed: {NUMBER($clock_speed, minimumFractionDigits: 4)} GHz
-    [mhz] Speed: {NUMBER($clock_speed, minimumFractionDigits: 4)} MHz
-    *[other] Speed: {NUMBER($clock_speed, minimumFractionDigits: 4)} Hz
+    [ghz] {NUMBER($clock_speed, minimumFractionDigits: 4)} GHz
+    [mhz] {NUMBER($clock_speed, minimumFractionDigits: 4)} MHz
+    *[other] {NUMBER($clock_speed, minimumFractionDigits: 4)} Hz
 }
 
 ui_algorithm_instruction_count = Instruction Count: {$instruction_count}
