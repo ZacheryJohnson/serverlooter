@@ -11,6 +11,9 @@ use std::time::{Duration, Instant};
 use crate::macros::{clock_speed_to_loc_args, get_localized};
 use bevy::prelude::*;
 use bevy::DefaultPlugins;
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+#[cfg(debug_assertions)] // debug/dev builds only
+use bevy::diagnostic::LogDiagnosticsPlugin;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use bevy_egui::egui::Widget;
 use unic_langid::LanguageIdentifier;
@@ -200,7 +203,7 @@ impl ActiveExploit {
 }
 
 #[derive(Resource)]
-struct PlayerState {
+pub struct PlayerState {
     progression: TutorialProgression,
     language_identifier: LanguageIdentifier,
     credits: u128,
@@ -230,9 +233,11 @@ struct UiState {
 }
 
 fn main() {
-    App::new()
+    let mut app = App::new();
+    app
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_systems(Startup, setup_camera_system)
         .add_systems(EguiPrimaryContextPass, (update_ui, tutorial_ui_system))
         .add_systems(FixedUpdate, tick_player_state)
@@ -278,8 +283,14 @@ fn main() {
             server_panel_state: ServersPanel {},
             scripts_panel_state: ScriptsPanel::new(),
             exploit_panel_state: ExploitPanel::new(),
-        })
-        .run();
+        });
+
+    #[cfg(debug_assertions)]
+    {
+        app.add_plugins(LogDiagnosticsPlugin::default());
+    }
+
+    app.run();
 }
 
 fn setup_camera_system(mut commands: Commands) {

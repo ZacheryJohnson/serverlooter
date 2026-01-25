@@ -1,8 +1,10 @@
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
+use std::sync::{Arc, Mutex};
 use bevy::prelude::Event;
 use rand::Rng;
+use uuid::Uuid;
 
 #[derive(Event)]
 pub struct ScriptCreatedEvent {
@@ -18,7 +20,7 @@ pub struct ScriptCreatedEvent {
 
 #[derive(Clone)]
 pub struct AlgorithmProcedure {
-    pub algorithms: VecDeque<Algorithm>,
+    pub algorithms: VecDeque<Arc<Mutex<Algorithm>>>,
 }
 
 impl AlgorithmProcedure {
@@ -39,7 +41,7 @@ impl AlgorithmProcedure {
         self
             .algorithms
             .iter()
-            .map(|algo| algo.instruction_count)
+            .map(|algo| algo.lock().unwrap().instruction_count)
             .sum::<u64>()
     }
 }
@@ -104,7 +106,7 @@ impl ScriptBuilder {
             .all(|proc| proc.algorithms.is_empty())
     }
 
-    pub fn add_algorithm(&mut self, algorithm: Algorithm) {
+    pub fn add_algorithm(&mut self, algorithm: Arc<Mutex<Algorithm>>) {
         // ZJ-TODO: handle multiple procedures
         match self.script.procedures.first_mut() {
             Some(procedure) => {
@@ -116,9 +118,13 @@ impl ScriptBuilder {
         }
     }
 
-    pub fn remove_algorithm(&mut self, algorithm: Algorithm) {
+    pub fn remove_algorithm(&mut self, algorithm: Arc<Mutex<Algorithm>>) {
         for procedure in self.script.procedures.iter_mut() {
-            procedure.algorithms.retain(|algo| algo != &algorithm);
+            procedure.algorithms.retain(|algo| {
+                let a_id = { algo.lock().unwrap().id.clone() };
+                let b_id = { algorithm.lock().unwrap().id.clone() };
+                a_id != b_id
+            });
         }
     }
 
@@ -131,8 +137,31 @@ impl ScriptBuilder {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone)]
+pub enum AlgorithmId {
+    Invalid,
+    Id(Uuid),
+}
+
+impl PartialEq<Self> for AlgorithmId {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (AlgorithmId::Id(a), AlgorithmId::Id(b)) => a == b,
+            _ => false
+        }
+    }
+}
+
+impl From<Uuid> for AlgorithmId {
+    fn from(value: Uuid) -> Self {
+        AlgorithmId::Id(value)
+    }
+}
+
+#[derive(Clone)]
 pub struct Algorithm {
+    pub id: AlgorithmId,
+
     /// How many instructions does this algorithm contain?
     /// Once all instructions are executed, the algorithm is considered complete
     pub instruction_count: u64,
@@ -142,16 +171,23 @@ pub struct Algorithm {
     pub instruction_effects: Vec<(u64, Vec<AlgorithmEffect>)>,
 }
 
+impl PartialEq for Algorithm {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 impl Default for Algorithm {
     fn default() -> Self {
         Algorithm {
+            id: AlgorithmId::Invalid,
             instruction_count: 0,
             instruction_effects: vec![],
         }
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AlgorithmEffectValue {
     /// This value will always be a single value (the provided `i32`).
     Static(i32),
@@ -203,7 +239,7 @@ impl From<Range<i32>> for AlgorithmEffectValue {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AlgorithmEffect {
     Extract { potency: AlgorithmEffectValue, }
 }
@@ -234,13 +270,13 @@ pub trait Executor {
 
 #[derive(Clone)]
 pub struct AlgorithmExecutor {
-    algorithm: Algorithm,
+    algorithm: Arc<Mutex<Algorithm>>,
     instruction_pointer: u64,
     is_paused: bool,
 }
 
 impl AlgorithmExecutor {
-    pub fn from(algorithm: Algorithm) -> AlgorithmExecutor {
+    pub fn from(algorithm: Arc<Mutex<Algorithm>>) -> AlgorithmExecutor {
         AlgorithmExecutor {
             algorithm,
             instruction_pointer: 0,
@@ -265,6 +301,8 @@ impl Executor for AlgorithmExecutor {
 
         let next_effects = self
             .algorithm
+            .lock()
+            .unwrap()
             .instruction_effects
             .iter()
             .filter(|(instruction_count, _)| *instruction_count > self.instruction_pointer && self.instruction_pointer + tick_count >= *instruction_count)
@@ -272,13 +310,13 @@ impl Executor for AlgorithmExecutor {
             .flatten()
             .collect::<Vec<AlgorithmEffect>>();
 
-        self.instruction_pointer = (self.instruction_pointer + tick_count).min(self.algorithm.instruction_count);
+        self.instruction_pointer = (self.instruction_pointer + tick_count).min(self.algorithm.lock().unwrap().instruction_count);
 
         next_effects
     }
 
     fn is_complete(&self) -> bool {
-        self.instruction_pointer >= self.algorithm.instruction_count
+        self.instruction_pointer >= self.algorithm.lock().unwrap().instruction_count
     }
 
     fn progress(&self) -> u64 {
@@ -286,14 +324,14 @@ impl Executor for AlgorithmExecutor {
     }
 
     fn total_instructions(&self) -> u64 {
-        self.algorithm.instruction_count
+        self.algorithm.lock().unwrap().instruction_count
     }
 }
 
 #[derive(Clone)]
 struct AlgorithmProcedureExecutor {
     procedure: AlgorithmProcedure,
-    finished_algorithms: Vec<Algorithm>,
+    finished_algorithms: Vec<Arc<Mutex<Algorithm>>>,
     algorithm_executor: AlgorithmExecutor,
 
     total_expected_instructions: u64,
@@ -364,7 +402,7 @@ impl Executor for AlgorithmProcedureExecutor {
         let completed_instruction_count: u64 = self
             .finished_algorithms
             .iter()
-            .map(|algorithm| algorithm.instruction_count)
+            .map(|algorithm| algorithm.lock().unwrap().instruction_count)
             .sum();
 
         let current_instruction_pointer = self.algorithm_executor.instruction_pointer;
@@ -454,13 +492,19 @@ impl Executor for ScriptExecutor {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+    use uuid::Uuid;
+
+    fn make_id() -> AlgorithmId {
+        Uuid::new_v4().into()
+    }
 
     #[test]
     fn algorithm_executor_can_complete() {
-        let algorithm = Algorithm {
+        let algorithm = Arc::new(Mutex::new(Algorithm {
+            id: make_id(),
             instruction_count: 3,
             instruction_effects: Default::default(),
-        };
+        }));
 
         let mut executor = AlgorithmExecutor::from(algorithm);
 
@@ -478,15 +522,17 @@ mod tests {
 
     #[test]
     fn algorithm_procedure_executor_can_complete() {
-        let algorithm1 = Algorithm {
+        let algorithm1 = Arc::new(Mutex::new(Algorithm {
+            id: make_id(),
             instruction_count: 3,
             instruction_effects: Default::default(),
-        };
+        }));
 
-        let algorithm2 = Algorithm {
+        let algorithm2 = Arc::new(Mutex::new(Algorithm {
+            id: make_id(),
             instruction_count: 3,
             instruction_effects: Default::default(),
-        };
+        }));
 
         let procedure = AlgorithmProcedure {
             algorithms: vec![algorithm2, algorithm1].into(),
@@ -506,23 +552,25 @@ mod tests {
 
     #[test]
     fn script_executor_can_complete() {
-        let algorithm1 = Algorithm {
+        let algorithm1 = Arc::new(Mutex::new(Algorithm {
+            id: make_id(),
             instruction_count: 5,
             instruction_effects: vec![
                 (1, vec![
                     AlgorithmEffect::Extract { potency: 1.into(), }
                 ]),
             ],
-        };
+        }));
 
-        let algorithm2 = Algorithm {
+        let algorithm2 = Arc::new(Mutex::new(Algorithm {
+            id: make_id(),
             instruction_count: 10,
             instruction_effects: vec![
                 (5, vec![
                     AlgorithmEffect::Extract { potency: 2.into(), }
                 ]),
             ],
-        };
+        }));
 
         let procedure = AlgorithmProcedure {
             algorithms: vec![algorithm2, algorithm1].into(),

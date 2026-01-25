@@ -1,9 +1,11 @@
+use uuid::Uuid;
+use std::sync::{Arc, Mutex};
 use bevy::prelude::{Event, On, ResMut};
 use crate::PlayerState;
-use crate::script::{Algorithm, AlgorithmEffect};
+use crate::script::{Algorithm, AlgorithmEffect, AlgorithmId};
 
 pub enum InventoryItem {
-    Algorithm(Algorithm),
+    Algorithm(Arc<Mutex<Algorithm>>),
 }
 
 #[derive(Event)]
@@ -17,21 +19,22 @@ pub struct InventoryItemRemoved {
 }
 
 pub struct Inventory {
-    pub algorithms: Vec<Algorithm>,
+    pub algorithms: Vec<Arc<Mutex<Algorithm>>>,
 }
 
 impl Inventory {
     pub fn new() -> Inventory {
         Inventory {
             algorithms: vec![
-                Algorithm {
+                Arc::new(Mutex::new(Algorithm {
+                    id: AlgorithmId::Id(Uuid::new_v4()),
                     instruction_count: 1_000_000,
                     instruction_effects: vec![
                         (1_000_000, vec![
                             AlgorithmEffect::Extract { potency: (5..10).into() },
                         ])
                     ],
-                }
+                }))
             ],
         }
     }
@@ -54,7 +57,11 @@ pub fn on_inventory_item_removed(
 ) {
     match &evt.item {
         InventoryItem::Algorithm(algorithm) => {
-            player_state.inventory.algorithms.retain(|algo| algo != algorithm);
+            player_state.inventory.algorithms.retain(|algo| {
+                let self_id = { algo.lock().unwrap().id.clone() };
+                let target_id = { algorithm.lock().unwrap().id.clone() };
+                self_id != target_id
+            });
         }
     }
 }
