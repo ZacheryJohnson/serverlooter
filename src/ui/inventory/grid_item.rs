@@ -2,7 +2,9 @@ use std::collections::HashSet;
 use std::sync::{Mutex, Weak};
 use bevy_egui::egui::text::LayoutJob;
 use crate::{PlayerState};
-use crate::script::{Algorithm, AlgorithmEffect, Script, ScriptId};
+use crate::algorithm::algorithm::Algorithm;
+use crate::algorithm::effect::AlgorithmEffect;
+use crate::script::{Script, ScriptId};
 use crate::ui::hover_text::OnHoverText;
 
 pub enum InventoryGridItemDisplay {

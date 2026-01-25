@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use bevy_egui::egui::text::LayoutJob;
 use bevy_egui::egui::{Color32, TextFormat};
 use crate::{get_localized, loc, PlayerState};
-use crate::script::Algorithm;
+use crate::algorithm::algorithm::Algorithm;
 use crate::ui::hover_text::OnHoverText;
 
 impl OnHoverText for Algorithm {

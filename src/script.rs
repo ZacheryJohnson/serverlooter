@@ -1,54 +1,14 @@
-use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
-use std::ops::Range;
 use std::sync::{Arc, Mutex};
 use bevy::prelude::Event;
-use rand::Rng;
-use uuid::Uuid;
-use crate::server::ServerStatType;
+use crate::algorithm::algorithm::Algorithm;
+use crate::algorithm::effect::AlgorithmEffect;
+use crate::algorithm::procedure::AlgorithmProcedure;
+use crate::executor::Executor;
 
 #[derive(Event)]
 pub struct ScriptCreatedEvent {
     pub script: Script
-}
-
-// ZJ-TODO: figure out how to join/split procedures
-// eg       x-x-x
-//         /     \
-//    x-x-x       x-x-x
-//         \     /
-//          x-x-/
-
-#[derive(Clone)]
-pub struct AlgorithmProcedure {
-    algorithms: VecDeque<Arc<Mutex<Algorithm>>>,
-}
-
-impl AlgorithmProcedure {
-    pub fn algorithms(&self) -> impl Iterator<Item = &Arc<Mutex<Algorithm>>> {
-        self.algorithms.iter().rev()
-    }
-
-    pub fn is_complete(&self) -> bool {
-        self.algorithms.is_empty()
-    }
-
-    pub fn next(&mut self) -> Option<AlgorithmExecutor> {
-        let Some(next_algorithm) = self.algorithms.pop_back() else {
-            return None
-        };
-
-        let executor = AlgorithmExecutor::from(next_algorithm);
-        Some(executor)
-    }
-
-    pub fn instruction_count(&self) -> u64 {
-        self
-            .algorithms
-            .iter()
-            .map(|algo| algo.lock().unwrap().instruction_count)
-            .sum::<u64>()
-    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -60,7 +20,7 @@ pub enum ScriptId {
 impl Display for ScriptId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ScriptId::Invalid => write!(f, "Invalid"),
+            ScriptId::Invalid => write!(f, "Invalid"), // ZJ-TODO: localize
             ScriptId::Id(id) => write!(f, "{id}"),
         }
     }
@@ -108,28 +68,20 @@ impl ScriptBuilder {
             .script
             .procedures
             .iter()
-            .all(|proc| proc.algorithms.is_empty())
+            .all(|proc| proc.algorithms().count() == 0)
     }
 
     pub fn add_algorithm(&mut self, algorithm: Arc<Mutex<Algorithm>>) {
         // ZJ-TODO: handle multiple procedures
         match self.script.procedures.first_mut() {
-            Some(procedure) => {
-                procedure.algorithms.push_front(algorithm);
-            },
-            None => self.script.procedures.push(AlgorithmProcedure {
-                algorithms: vec![algorithm].into(),
-            })
+            Some(procedure) => procedure.add_algorithm(algorithm),
+            None => self.script.procedures.push(AlgorithmProcedure::from(&[algorithm])),
         }
     }
 
     pub fn remove_algorithm(&mut self, algorithm: Arc<Mutex<Algorithm>>) {
         for procedure in self.script.procedures.iter_mut() {
-            procedure.algorithms.retain(|algo| {
-                let a_id = { algo.lock().unwrap().id.clone() };
-                let b_id = { algorithm.lock().unwrap().id.clone() };
-                a_id != b_id
-            });
+            procedure.remove_algorithm(algorithm.clone());
         }
     }
 
@@ -140,166 +92,6 @@ impl ScriptBuilder {
     pub fn finish(self) -> Script {
         self.script
     }
-}
-
-#[derive(Clone)]
-pub enum AlgorithmId {
-    Invalid,
-    Id(Uuid),
-}
-
-impl PartialEq<Self> for AlgorithmId {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (AlgorithmId::Id(a), AlgorithmId::Id(b)) => a == b,
-            _ => false
-        }
-    }
-}
-
-impl From<Uuid> for AlgorithmId {
-    fn from(value: Uuid) -> Self {
-        AlgorithmId::Id(value)
-    }
-}
-
-#[derive(Clone)]
-pub struct Algorithm {
-    pub id: AlgorithmId,
-
-    /// How many instructions does this algorithm contain?
-    /// Once all instructions are executed, the algorithm is considered complete
-    pub instruction_count: u64,
-
-    /// What effects are applied on what instruction?
-    /// This could be a hashmap, but with so few effects per algorithm this is plenty efficient
-    pub instruction_effects: Vec<(u64, Vec<AlgorithmEffect>)>,
-}
-
-impl PartialEq for Algorithm {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Default for Algorithm {
-    fn default() -> Self {
-        Algorithm {
-            id: AlgorithmId::Invalid,
-            instruction_count: 0,
-            instruction_effects: vec![],
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum AlgorithmEffectValue {
-    /// This value will always be a single value (the provided `i32`).
-    Static(i32),
-
-    /// This value will be any integer between the lower and upper `i32` values, inclusive.
-    /// Will panic if lower is greater than upper.
-    RangeInclusive(i32, i32),
-}
-
-impl Display for AlgorithmEffectValue {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AlgorithmEffectValue::Static(val) => {
-                write!(f, "{val}")
-            }
-            AlgorithmEffectValue::RangeInclusive(low, upp) => {
-                write!(f, "{low}-{upp}")
-            }
-        }
-    }
-}
-
-impl AlgorithmEffectValue {
-    /// Gets or generates a value.
-    /// Repeated calls may result in different values in the case of range values (such as [RangeInclusive](AlgorithmEffectValue::RangeInclusive)).
-    pub fn make_value(&self) -> i32 {
-        let rng = &mut rand::rng();
-        match self {
-            Self::Static(v) => *v,
-            Self::RangeInclusive(min, max) => {
-                assert!(min <= max);
-                rng.sample(
-                    rand::distr::Uniform::new(*min, *max + 1).unwrap()
-                )
-            },
-        }
-    }
-}
-
-impl From<i32> for AlgorithmEffectValue {
-    fn from(value: i32) -> Self {
-        AlgorithmEffectValue::Static(value)
-    }
-}
-
-impl From<Range<i32>> for AlgorithmEffectValue {
-    fn from(value: Range<i32>) -> Self {
-        AlgorithmEffectValue::RangeInclusive(value.start, value.end)
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum AlgorithmEffectTarget {
-    /// The algorithm effect will target the server running the algorithm.
-    /// This is often used for self-buffs.
-    Host,
-
-    /// The algorithm effect will target the other server.
-    /// This is often used for debuffs.
-    Remote,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum AlgorithmEffect {
-    /// `Siphon` steals credits from the target machine.
-    /// The higher the `potency`, the more credits will be stolen from the target.
-    Siphon { potency: AlgorithmEffectValue, },
-
-    /// `Exfil` steals algorithms from the target machine.
-    /// The higher the `potency`, the stronger algorithms will be stolen from the target.
-    Exfil { potency: AlgorithmEffectValue, },
-
-    /// `Modify` alters the stats of a server.
-    /// This can be used to buff or debuff a `target`, either the hosting server or remote target server.
-    /// The higher the `potency`, the stronger the effect on `stat`.
-    Modify { target: AlgorithmEffectTarget, stat: ServerStatType, potency: AlgorithmEffectValue },
-}
-
-impl Display for AlgorithmEffect {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        // ZJ-TODO: localize
-        match self {
-            AlgorithmEffect::Siphon { potency } => {
-                write!(f, "Siphon {potency}")
-            },
-            AlgorithmEffect::Exfil { potency } => {
-                write!(f, "Exfil {potency}")
-            },
-            AlgorithmEffect::Modify { target, stat, potency } => {
-                write!(f, "Modify {target:?}'s {stat:?} by {potency}")
-            }
-        }
-    }
-}
-
-pub trait Executor {
-    fn start_execution(&mut self);
-    fn stop_execution(&mut self);
-    // ZJ-TODO: this doesn't handle partial ticks
-    //          for example, if tick_count = 5, and we're on the last instruction
-    //          of an algorithm, the next algorithm in the procedure won't be ticked for 4
-    //          We'll instead currently "lose" 4 ticks.
-    //          The ticks should instead be re-applied to the next algorithm
-    fn tick_execution(&mut self, tick_count: u64) -> Vec<AlgorithmEffect>;
-    fn is_complete(&self) -> bool;
-    fn progress(&self) -> u64;
-    fn total_instructions(&self) -> u64;
 }
 
 #[derive(Clone)]
@@ -527,6 +319,7 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
     use uuid::Uuid;
+    use crate::algorithm::id::AlgorithmId;
 
     fn make_id() -> AlgorithmId {
         Uuid::new_v4().into()
@@ -568,10 +361,7 @@ mod tests {
             instruction_effects: Default::default(),
         }));
 
-        let procedure = AlgorithmProcedure {
-            algorithms: vec![algorithm2, algorithm1].into(),
-        };
-
+        let procedure = AlgorithmProcedure::from(&[algorithm1, algorithm2]);
         let mut executor = AlgorithmProcedureExecutor::from(procedure).unwrap();
 
         assert_eq!(executor.is_complete(), false);
@@ -606,9 +396,7 @@ mod tests {
             ],
         }));
 
-        let procedure = AlgorithmProcedure {
-            algorithms: vec![algorithm2, algorithm1].into(),
-        };
+        let procedure = AlgorithmProcedure::from(&[algorithm1, algorithm2]);
 
         let script = Script::new(
             ScriptId::Id(1),

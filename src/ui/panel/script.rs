@@ -4,8 +4,9 @@ use bevy::prelude::Commands;
 use bevy_egui::egui;
 use bevy_egui::egui::{Align2, Color32, Context, FontId, RichText, Sense, StrokeKind, Ui};
 use crate::{get_localized, loc, PlayerState};
+use crate::algorithm::algorithm::Algorithm;
 use crate::inventory::{InventoryItem, InventoryItemAdded, InventoryItemRemoved};
-use crate::script::{Algorithm, ScriptBuilder, ScriptCreatedEvent, ScriptId};
+use crate::script::{ScriptBuilder, ScriptCreatedEvent, ScriptId};
 use crate::ui::inventory::grid_item::{AlgorithmGridItem, InventoryGridItem, InventoryGridItemDisplay, ScriptGridItem};
 use crate::ui::panel::Panel;
 
