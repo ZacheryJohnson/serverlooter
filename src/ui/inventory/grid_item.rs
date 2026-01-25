@@ -54,9 +54,13 @@ impl InventoryGridItem for AlgorithmGridItem {
             .flatten()
             .collect::<HashSet<_>>();
 
+        // ZJ-TODO: rather than a HashSet, we should consider a BTreeSet, and sort by highest-potency first
+        //          this would order the display string to show more clearly what an algorithm does best
         for effect in effect_set {
             match effect {
-                AlgorithmEffect::Extract { .. } => display_str.push_str("$"),
+                AlgorithmEffect::Siphon { .. } => display_str.push_str("$"),
+                AlgorithmEffect::Exfil { .. } => display_str.push_str("X"),
+                AlgorithmEffect::Modify { .. } => display_str.push_str("~"),
             }
         }
 

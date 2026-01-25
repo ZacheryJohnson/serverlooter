@@ -21,7 +21,7 @@ impl OnHoverText for Script {
         let mut thread_id = 'a';
         for procedure in &self.procedures {
             let mut algorithm_id = 1;
-            for algorithm in &procedure.algorithms {
+            for algorithm in procedure.algorithms() {
                 let algorithm = algorithm.lock().unwrap();
                 let prefix = format!("{thread_id}.{algorithm_id}:\n");
                 hover_text_layout_job.append(
@@ -43,6 +43,9 @@ impl OnHoverText for Script {
 
                 algorithm_id += 1;
             }
+
+            // The last effect has an extra trailing newline
+            hover_text_layout_job.text.truncate(hover_text_layout_job.text.len() - 1);
 
             // ZJ-TODO: refactor to be more Rusty
             //          this just "increments" the letter

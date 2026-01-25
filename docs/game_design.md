@@ -26,7 +26,7 @@ operations running on those servers will run slower.
 Scripts are collections of algorithms that are run to hack servers.
 
 Algorithms are different units of functionality that are combined to do 
-useful things. For example, a resource extraction algorithm might steal credits
+useful things. For example, a resource siphon algorithm might steal credits
 from the target server, while a detection suppression algorithm might slow or
 prevent the server from disconnecting the hacker.
 
@@ -49,12 +49,12 @@ assumes the player clicks "Yes".
 titled "fe80:0070::". The player is prompted to click this server, which 
 populates the main page with its data.
 4. The in-game tutorial notes that the server isn't exactly industrial grade,
-but is enough to start extracting some credits. The in-game tutorial highlights
+but is enough to start siphoning some credits. The in-game tutorial highlights
 the player's credits, of which they have a meager 73. The Develop section is
 added to the menu sidebar, with a "Scripts" subsection, and the player is 
 prompted to click it.
 5. The player is walked through the script construction process, slotting a
-common-quality credit extraction algorithm into the script and finalizing it.
+common-quality credit siphon algorithm into the script and finalizing it.
 6. The Market tab is now available in the menu sidebar. The player is prompted
 to click this, which replaces the main page with the Market.
 7. The player is shown a variety of purchasables and is prompted to purchase the 
@@ -64,7 +64,7 @@ and specifically the "Exploit" action. The player is prompted to click the
 8. The player is shown 3 servers: a CorpA server, CorpB server, and CorpC server.
 Each offers different rewards and encourages different scripts to maximize 
 rewards. Players are prompted to click the CorpA server, which is noted to be 
-best for extracting credits (a bank or something), then click Exploit/Start/etc.
+best for siphoning credits (a bank or something), then click Exploit/Start/etc.
 9. The player will always succeed on their first run, demonstrating what a 
 successful run looks like. This will reward an algorithm that helps with CorpB.
 The tutorial then prompts the player to run against CorpB, which they will always

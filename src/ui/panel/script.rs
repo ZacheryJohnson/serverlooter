@@ -127,8 +127,8 @@ impl Panel for ScriptsPanel {
             let mut algorithm_to_remove: Option<Arc<Mutex<Algorithm>>> = None;
             for procedure in &script.procedures {
                 ui.heading(loc!(player_state, "ui_algorithm_procedure_header"));
-                let mut procedure = procedure.clone();
-                while let Some(algorithm) = procedure.algorithms.pop_back() {
+                let mut algorithms = procedure.algorithms();
+                while let Some(algorithm) = algorithms.next() {
                     let algorithm_inner = algorithm.lock().unwrap();
                     let group = ui.group(|ui| {
                         ui.label(loc!(
@@ -163,7 +163,7 @@ impl Panel for ScriptsPanel {
                 let mut script_builder = ScriptBuilder::new();
                 std::mem::swap(&mut self.script_builder, &mut script_builder);
                 let mut script = script_builder.finish();
-                script.id = ScriptId::Id(1); // ZJ-TODO
+                script.id = ScriptId::Id(player_state.scripts.iter().count() as u64 + 1); // ZJ-TODO
 
                 commands.trigger(ScriptCreatedEvent {
                     script

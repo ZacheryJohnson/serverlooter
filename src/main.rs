@@ -23,7 +23,7 @@ use crate::event::request_resume_exploit::RequestResumeExploitEvent;
 use crate::event::request_start_exploit::RequestStartExploitEvent;
 use crate::event::request_stop_exploit::RequestStopExploitEvent;
 use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inventory};
-use crate::script::{AlgorithmEffect, Executor, Script, ScriptCreatedEvent, ScriptExecutor};
+use crate::script::{AlgorithmEffect, AlgorithmEffectTarget, Executor, Script, ScriptCreatedEvent, ScriptExecutor};
 use crate::server::{Server, ServerStatInstance, ServerStatSource, ServerStatType};
 use crate::ui::panel::{Panel, exploit::*, market::*, script::*, server::*};
 
@@ -269,7 +269,7 @@ fn main() {
                     threads: 1,
                     clock_speed_hz: 1_600_000,
                     stats: vec![
-                        ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::ExtractionResistance, 3),
+                        ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::SiphonResist, 3),
                     ]
                 }))
             }))],
@@ -700,16 +700,41 @@ fn tick_player_state(
 
     for (active_exploit, pending_effects) in pending_effects {
         for pending_effect in &pending_effects {
+            let active_exploit = active_exploit.clone();
+
             match pending_effect {
-                AlgorithmEffect::Extract { potency } => {
+                AlgorithmEffect::Siphon { potency } => {
                     let value = potency.make_value();
+                    let active_exploit = active_exploit.clone();
                     let target_server = lock_and_clone!(active_exploit.target, server);
                     let target_server = target_server.lock().unwrap();
                     let target_stats = target_server.stats();
 
-                    let target_extract_defense = target_stats.value_of(ServerStatType::ExtractionResistance);
-                    let extract_value = (value - target_extract_defense).max(0) as u128;
-                    player_state.credits += extract_value;
+                    // ZJ-TODO: for now, don't let resists fall below 0
+                    //          there's design space to let them do so, but too much trivializes content
+                    let target_defense = target_stats.value_of(ServerStatType::SiphonResist).max(0);
+                    let siphon_value = (value - target_defense).max(0) as u128;
+
+                    // ZJ-TODO: shoot off an event to do this rather than applying it ourselves
+                    player_state.credits += siphon_value;
+                }
+                AlgorithmEffect::Exfil { .. } => {
+                }
+                AlgorithmEffect::Modify { target, stat, potency } => {
+                    let server = match target {
+                        AlgorithmEffectTarget::Host => active_exploit.clone().hosting_server.clone(),
+                        AlgorithmEffectTarget::Remote => active_exploit.clone().target.lock().unwrap().server.clone(),
+                    };
+
+                    let script_id = active_exploit.script.lock().unwrap().id.clone();
+
+                    server.lock().unwrap().stats_mut().apply(
+                        ServerStatInstance::new(
+                            ServerStatSource::Script(script_id),
+                            stat.to_owned(),
+                            potency.make_value()
+                        )
+                    )
                 }
             }
         }

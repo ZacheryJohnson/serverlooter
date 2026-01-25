@@ -40,6 +40,9 @@ impl OnHoverText for Algorithm {
             }
         }
 
+        // The last effect has an extra trailing newline
+        hover_text_layout_job.text.truncate(hover_text_layout_job.text.len() - 1);
+
         hover_text_layout_job
     }
 }

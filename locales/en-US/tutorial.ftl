@@ -20,7 +20,7 @@ tutorial_stage_8 =
 tutorial_stage_9 =
     Here are the servers whose connection details we just purchased.
     Each server contains different resources we can acquire and different defenses that we must overcome.
-    Our script is best at *Extract*ing credits, so let's target the first server.
+    Our script is best at *Siphon*ing credits, so let's target the first server.
 tutorial_stage_10 =
     Ah, the sweet acrid scent of credits hitting your wallet. Nice work.
     Shall we see what CorpB has to offer?
@@ -33,4 +33,4 @@ tutorial_stage_12 =
 tutorial_stage_13 =
     When including multiple algorithms in a script, you can choose how to execute them.
     There's lot of neat ways to arrange algorithms that you can discover!
-    For now, let's execute our Spoofer in parallel with our Extractor.
+    For now, let's execute our Spoofer in parallel with our Siphon.

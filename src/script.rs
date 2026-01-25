@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use bevy::prelude::Event;
 use rand::Rng;
 use uuid::Uuid;
+use crate::server::ServerStatType;
 
 #[derive(Event)]
 pub struct ScriptCreatedEvent {
@@ -20,10 +21,14 @@ pub struct ScriptCreatedEvent {
 
 #[derive(Clone)]
 pub struct AlgorithmProcedure {
-    pub algorithms: VecDeque<Arc<Mutex<Algorithm>>>,
+    algorithms: VecDeque<Arc<Mutex<Algorithm>>>,
 }
 
 impl AlgorithmProcedure {
+    pub fn algorithms(&self) -> impl Iterator<Item = &Arc<Mutex<Algorithm>>> {
+        self.algorithms.iter().rev()
+    }
+
     pub fn is_complete(&self) -> bool {
         self.algorithms.is_empty()
     }
@@ -110,7 +115,7 @@ impl ScriptBuilder {
         // ZJ-TODO: handle multiple procedures
         match self.script.procedures.first_mut() {
             Some(procedure) => {
-                procedure.algorithms.push_front(algorithm)
+                procedure.algorithms.push_front(algorithm);
             },
             None => self.script.procedures.push(AlgorithmProcedure {
                 algorithms: vec![algorithm].into(),
@@ -240,16 +245,45 @@ impl From<Range<i32>> for AlgorithmEffectValue {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum AlgorithmEffectTarget {
+    /// The algorithm effect will target the server running the algorithm.
+    /// This is often used for self-buffs.
+    Host,
+
+    /// The algorithm effect will target the other server.
+    /// This is often used for debuffs.
+    Remote,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AlgorithmEffect {
-    Extract { potency: AlgorithmEffectValue, }
+    /// `Siphon` steals credits from the target machine.
+    /// The higher the `potency`, the more credits will be stolen from the target.
+    Siphon { potency: AlgorithmEffectValue, },
+
+    /// `Exfil` steals algorithms from the target machine.
+    /// The higher the `potency`, the stronger algorithms will be stolen from the target.
+    Exfil { potency: AlgorithmEffectValue, },
+
+    /// `Modify` alters the stats of a server.
+    /// This can be used to buff or debuff a `target`, either the hosting server or remote target server.
+    /// The higher the `potency`, the stronger the effect on `stat`.
+    Modify { target: AlgorithmEffectTarget, stat: ServerStatType, potency: AlgorithmEffectValue },
 }
 
 impl Display for AlgorithmEffect {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // ZJ-TODO: localize
         match self {
-            AlgorithmEffect::Extract { potency } => {
-                write!(f, "Extract {potency}")
+            AlgorithmEffect::Siphon { potency } => {
+                write!(f, "Siphon {potency}")
             },
+            AlgorithmEffect::Exfil { potency } => {
+                write!(f, "Exfil {potency}")
+            },
+            AlgorithmEffect::Modify { target, stat, potency } => {
+                write!(f, "Modify {target:?}'s {stat:?} by {potency}")
+            }
         }
     }
 }
@@ -557,7 +591,7 @@ mod tests {
             instruction_count: 5,
             instruction_effects: vec![
                 (1, vec![
-                    AlgorithmEffect::Extract { potency: 1.into(), }
+                    AlgorithmEffect::Siphon { potency: 1.into(), }
                 ]),
             ],
         }));
@@ -567,7 +601,7 @@ mod tests {
             instruction_count: 10,
             instruction_effects: vec![
                 (5, vec![
-                    AlgorithmEffect::Extract { potency: 2.into(), }
+                    AlgorithmEffect::Siphon { potency: 2.into(), }
                 ]),
             ],
         }));
@@ -584,11 +618,11 @@ mod tests {
         let expected_effects_on_tick = BTreeMap::from([
             // Algorithm 1 = first algorithm, so no delay
             (1, vec![
-                AlgorithmEffect::Extract { potency: 1.into(), }
+                AlgorithmEffect::Siphon { potency: 1.into(), }
             ]),
             // Algorithm 2 = second algorithm, so 5 instructions for algorithm 1 then 5 instructions until the effect
             (10, vec![
-                AlgorithmEffect::Extract { potency: 2.into(), }
+                AlgorithmEffect::Siphon { potency: 2.into(), }
             ]),
         ]);
 

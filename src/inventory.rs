@@ -2,7 +2,8 @@ use uuid::Uuid;
 use std::sync::{Arc, Mutex};
 use bevy::prelude::{Event, On, ResMut};
 use crate::PlayerState;
-use crate::script::{Algorithm, AlgorithmEffect, AlgorithmId};
+use crate::script::{Algorithm, AlgorithmEffect, AlgorithmEffectTarget, AlgorithmId};
+use crate::server::ServerStatType;
 
 pub enum InventoryItem {
     Algorithm(Arc<Mutex<Algorithm>>),
@@ -31,10 +32,34 @@ impl Inventory {
                     instruction_count: 1_000_000,
                     instruction_effects: vec![
                         (1_000_000, vec![
-                            AlgorithmEffect::Extract { potency: (5..10).into() },
+                            AlgorithmEffect::Siphon { potency: (5..10).into() },
                         ])
                     ],
-                }))
+                })),
+                Arc::new(Mutex::new(Algorithm {
+                    id: AlgorithmId::Id(Uuid::new_v4()),
+                    instruction_count: 5_000_000,
+                    instruction_effects: vec![
+                        (5_000_000, vec![
+                            AlgorithmEffect::Modify {
+                                target: AlgorithmEffectTarget::Remote,
+                                stat: ServerStatType::SiphonResist,
+                                potency: (-3..-1).into(),
+                            }
+                        ])
+                    ]
+                })),
+                Arc::new(Mutex::new(Algorithm {
+                    id: AlgorithmId::Id(Uuid::new_v4()),
+                    instruction_count: 3_000_000,
+                    instruction_effects: vec![
+                        (3_000_000, vec![
+                            AlgorithmEffect::Exfil {
+                                potency: (5..10).into(),
+                            }
+                        ])
+                    ]
+                })),
             ],
         }
     }

@@ -26,10 +26,18 @@ impl Server {
     pub fn stats(&'_ self) -> ServerStats<'_> {
         ServerStats::from(&self.stats)
     }
+
+    pub fn stats_mut(&'_ mut self) -> ServerStatsMut<'_> {
+        ServerStatsMut::from(&mut self.stats)
+    }
 }
 
 pub struct ServerStats<'stats> {
     stats: &'stats Vec<ServerStatInstance>,
+}
+
+pub struct ServerStatsMut<'stats> {
+    stats: &'stats mut Vec<ServerStatInstance>,
 }
 
 impl<'s> ServerStats<'s> {
@@ -47,6 +55,16 @@ impl<'s> ServerStats<'s> {
     }
 }
 
+impl <'s> ServerStatsMut<'s> {
+    pub fn from(stats: &'s mut Vec<ServerStatInstance>) -> ServerStatsMut<'s> {
+        ServerStatsMut { stats }
+    }
+
+    pub fn apply(&mut self, server_stat_instance: ServerStatInstance) {
+        self.stats.push(server_stat_instance);
+    }
+}
+
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub enum ServerStatSource {
     /// The stat is innate to the server.
@@ -59,9 +77,8 @@ pub enum ServerStatSource {
 /// All stats that can exist on a server.
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub enum ServerStatType {
-    ReconResistance,
-    VulnerabilityResistance,
-    ExtractionResistance,
+    SiphonResist,
+    ExfilResist,
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
