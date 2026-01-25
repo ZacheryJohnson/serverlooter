@@ -21,12 +21,13 @@ use bevy_egui::egui::Widget;
 use unic_langid::LanguageIdentifier;
 use uuid::Uuid;
 use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectTarget};
+use crate::algorithm::generator::AlgorithmGenerator;
 use crate::event::request_pause_exploit::RequestPauseExploitEvent;
 use crate::event::request_resume_exploit::RequestResumeExploitEvent;
 use crate::event::request_start_exploit::RequestStartExploitEvent;
 use crate::event::request_stop_exploit::RequestStopExploitEvent;
 use crate::executor::Executor;
-use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inventory};
+use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inventory, InventoryItem, InventoryItemAdded};
 use crate::script::{Script, ScriptCreatedEvent, ScriptExecutor};
 use crate::server::{Server, ServerStatInstance, ServerStatSource, ServerStatType};
 use crate::ui::panel::{Panel, exploit::*, market::*, script::*, server::*};
@@ -677,6 +678,7 @@ fn tutorial_ui_system(
 }
 
 fn tick_player_state(
+    mut commands: Commands,
     mut player_state: ResMut<PlayerState>,
 ) {
     // Only tick at a fixed rate
@@ -723,6 +725,12 @@ fn tick_player_state(
                     player_state.credits += siphon_value;
                 }
                 AlgorithmEffect::Exfil { .. } => {
+                    // ZJ-TODO: pass potency to generator
+                    let algorithm = AlgorithmGenerator::generate();
+
+                    commands.trigger(InventoryItemAdded {
+                        item: InventoryItem::Algorithm(algorithm),
+                    });
                 }
                 AlgorithmEffect::Modify { target, stat, potency } => {
                     let server = match target {

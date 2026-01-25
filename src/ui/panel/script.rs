@@ -86,7 +86,7 @@ impl Panel for ScriptsPanel {
                             style.interaction.show_tooltips_only_when_still = false;
                         });
 
-                        for grid_item in grid_items {
+                        for (idx, grid_item) in grid_items.iter().enumerate() {
                             let (rect, resp) = ui.allocate_exact_size(
                                 egui::vec2(35.0, 35.0),
                                 Sense::click() | Sense::hover() | Sense::drag(),
@@ -116,6 +116,11 @@ impl Panel for ScriptsPanel {
                                         .painter()
                                         .text(rect.center(), Align2::CENTER_CENTER, display_text, FontId::default(), Color32::GOLD);
                                 }
+                            }
+
+                            const MAX_ENTRIES_PER_ROW: usize = 5;
+                            if (idx + 1) % MAX_ENTRIES_PER_ROW == 0 {
+                                ui.end_row();
                             }
                         }
                     });

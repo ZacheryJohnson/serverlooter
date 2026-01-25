@@ -4557,6 +4557,7 @@ dependencies = [
  "bevy_egui",
  "fluent-templates",
  "rand",
+ "rand_distr",
  "unic-langid",
  "uuid",
 ]
