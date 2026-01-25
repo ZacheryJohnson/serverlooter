@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use bevy::prelude::Event;
@@ -22,18 +22,25 @@ pub struct AlgorithmProcedure {
 }
 
 impl AlgorithmProcedure {
-    fn next(&mut self) -> Option<AlgorithmExecutor> {
+    pub fn is_complete(&self) -> bool {
+        self.algorithms.is_empty()
+    }
+
+    pub fn next(&mut self) -> Option<AlgorithmExecutor> {
         let Some(next_algorithm) = self.algorithms.pop_back() else {
             return None
         };
 
-        let executor = AlgorithmExecutor {
-            algorithm: next_algorithm,
-            instruction_pointer: 0,
-            is_paused: false,
-        };
-
+        let executor = AlgorithmExecutor::from(next_algorithm);
         Some(executor)
+    }
+
+    pub fn instruction_count(&self) -> u64 {
+        self
+            .algorithms
+            .iter()
+            .map(|algo| algo.instruction_count)
+            .sum::<u64>()
     }
 }
 
@@ -226,7 +233,7 @@ pub trait Executor {
 }
 
 #[derive(Clone)]
-struct AlgorithmExecutor {
+pub struct AlgorithmExecutor {
     algorithm: Algorithm,
     instruction_pointer: u64,
     is_paused: bool,
@@ -285,7 +292,7 @@ impl Executor for AlgorithmExecutor {
 
 #[derive(Clone)]
 struct AlgorithmProcedureExecutor {
-    algorithms: Vec<Algorithm>,
+    procedure: AlgorithmProcedure,
     finished_algorithms: Vec<Algorithm>,
     algorithm_executor: AlgorithmExecutor,
 
@@ -296,22 +303,17 @@ struct AlgorithmProcedureExecutor {
 impl AlgorithmProcedureExecutor {
     /// Creates an AlgorithmProcedureExecutor from an AlgorithmProcedure.
     /// If the procedure contains no algorithms, returns None.
-    pub fn from(algorithm_procedure: AlgorithmProcedure) -> Option<AlgorithmProcedureExecutor> {
-        let mut algorithms = algorithm_procedure.algorithms;
+    pub fn from(mut algorithm_procedure: AlgorithmProcedure) -> Option<AlgorithmProcedureExecutor> {
+        let total_expected_instructions = algorithm_procedure.instruction_count();
 
-        let total_expected_instructions = algorithms
-            .iter()
-            .map(|algo| algo.instruction_count)
-            .sum();
-
-        let Some(first_algorithm) = algorithms.pop_back() else {
+        let Some(executor) = algorithm_procedure.next() else {
             return None;
         };
 
         Some(AlgorithmProcedureExecutor {
-            algorithms: algorithms.into(),
+            procedure: algorithm_procedure,
             finished_algorithms: Vec::new(),
-            algorithm_executor: AlgorithmExecutor::from(first_algorithm),
+            algorithm_executor: executor,
             total_expected_instructions,
             is_paused: true,
         })
@@ -343,11 +345,11 @@ impl Executor for AlgorithmProcedureExecutor {
             self.finished_algorithms.push(finished_algorithm);
 
             // Pop next algorithm and begin executing it
-            let Some(next_algorithm) = self.algorithms.pop() else {
+            let Some(next_algorithm_executor) = self.procedure.next() else {
                 return vec![];
             };
 
-            self.algorithm_executor = AlgorithmExecutor::from(next_algorithm);
+            self.algorithm_executor = next_algorithm_executor;
             self.algorithm_executor.start_execution();
         }
 
@@ -355,7 +357,7 @@ impl Executor for AlgorithmProcedureExecutor {
     }
 
     fn is_complete(&self) -> bool {
-        self.algorithms.is_empty() && self.algorithm_executor.is_complete()
+        self.procedure.is_complete() && self.algorithm_executor.is_complete()
     }
 
     fn progress(&self) -> u64 {
@@ -391,6 +393,10 @@ impl ScriptExecutor {
                 .collect(),
             is_paused: false,
         }
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.is_paused
     }
 }
 
@@ -447,6 +453,7 @@ impl Executor for ScriptExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     #[test]
     fn algorithm_executor_can_complete() {

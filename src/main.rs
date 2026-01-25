@@ -1,10 +1,10 @@
-mod player;
 mod ui;
 mod script;
 mod server;
 mod inventory;
 
 mod macros;
+mod event;
 
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -12,16 +12,23 @@ use crate::macros::{clock_speed_to_loc_args, get_localized};
 use bevy::prelude::*;
 use bevy::DefaultPlugins;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
-use bevy_egui::egui::{Align, Direction, Widget};
+use bevy_egui::egui::Widget;
 use unic_langid::LanguageIdentifier;
 use uuid::Uuid;
+use crate::event::request_pause_exploit::RequestPauseExploitEvent;
+use crate::event::request_resume_exploit::RequestResumeExploitEvent;
+use crate::event::request_start_exploit::RequestStartExploitEvent;
+use crate::event::request_stop_exploit::RequestStopExploitEvent;
 use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inventory};
 use crate::script::{AlgorithmEffect, Executor, Script, ScriptCreatedEvent, ScriptExecutor};
 use crate::server::{Server, ServerStatInstance, ServerStatSource, ServerStatType};
-use crate::ui::{Panel, MarketPanel, ServersPanel, ScriptsPanel, ExploitPanel, RequestStartExploitEvent, RequestStopExploitEvent};
+use crate::ui::panel::{Panel, exploit::*, market::*, script::*, server::*};
 
-/// Must cleanly factor into 1000, such that TIME_BETWEEN_TICKS isn't fractional.
 const TICKS_PER_SECOND: u8 = 20;
+const _: () = assert!(
+    1000 % TICKS_PER_SECOND as u32 == 0,
+    "TICKS_PER_SECOND must cleanly factor into 1000, such that TIME_BETWEEN_TICKS isn't fractional"
+);
 const TIME_BETWEEN_TICKS: Duration = Duration::from_millis(1000 / TICKS_PER_SECOND as u64);
 
 enum TutorialProgression {
@@ -147,6 +154,12 @@ pub struct ActiveExploit {
     script_executor: ScriptExecutor,
 }
 
+#[derive(Clone)]
+pub enum ActiveExploitStatus {
+    Paused,
+    Running,
+}
+
 impl ActiveExploit {
     pub fn new(
         target: Arc<Mutex<ExploitTarget>>,
@@ -176,6 +189,14 @@ impl ActiveExploit {
     pub fn total_instructions(&self) -> u64 {
         self.script_executor.total_instructions()
     }
+
+    pub fn status(&self) -> ActiveExploitStatus {
+        if self.script_executor.is_paused() {
+            ActiveExploitStatus::Paused
+        } else {
+            ActiveExploitStatus::Running
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -189,16 +210,6 @@ struct PlayerState {
     active_exploits: Vec<ActiveExploit>,
     scripts: Vec<Arc<Mutex<Script>>>,
     last_tick: Instant,
-}
-
-#[derive(Resource)]
-struct TestWindowState {
-    open: bool,
-}
-
-pub struct ActiveExploitWindow {
-    open: bool,
-    active_exploit: Arc<Mutex<ActiveExploit>>,
 }
 
 enum ActivePanel {
@@ -231,6 +242,8 @@ fn main() {
         .add_observer(on_inventory_item_removed)
         .add_observer(on_request_start_exploit)
         .add_observer(on_request_stop_exploit)
+        .add_observer(on_request_pause_exploit)
+        .add_observer(on_request_resume_exploit)
         .insert_resource(PlayerState {
             progression: TutorialProgression::None,
             language_identifier: "en-US".parse().unwrap(),
@@ -259,7 +272,6 @@ fn main() {
             scripts: vec![],
             last_tick: Instant::now(),
         })
-        .insert_resource(TestWindowState { open: true })
         .insert_resource(UiState {
             active_panel: ActivePanel::Home,
             market_panel_state: MarketPanel {},
@@ -305,6 +317,18 @@ fn update_ui(
                 .desired_width(ui.available_width() / 2.0)
                 .show_percentage()
                 .ui(ui);
+            match active_exploit.status() {
+                ActiveExploitStatus::Paused => {
+                    if ui.button("Resume").clicked() {
+                        commands.trigger(RequestResumeExploitEvent { exploit_id: active_exploit.id });
+                    }
+                }
+                ActiveExploitStatus::Running => {
+                    if ui.button("Pause").clicked() {
+                        commands.trigger(RequestPauseExploitEvent { exploit_id: active_exploit.id });
+                    }
+                }
+            }
             if ui.button(loc!(player_state, "ui_confirmation_stop")).clicked() {
                 commands.trigger(RequestStopExploitEvent {
                     exploit_id: active_exploit.id,
@@ -449,7 +473,7 @@ fn on_request_start_exploit(
 
     player_state.active_exploits.push(ActiveExploit::new(target, script, server, new_clock_speed_per_process));
 
-    if (matches!(player_state.progression, TutorialProgression::ExploitServersShown)) {
+    if matches!(player_state.progression, TutorialProgression::ExploitServersShown) {
         player_state.progression.advance();
     }
 
@@ -461,6 +485,36 @@ fn on_request_stop_exploit(
     mut player_state: ResMut<PlayerState>,
 ) -> Result {
     player_state.active_exploits.retain(|exploit| exploit.id != evt.exploit_id);
+
+    Ok(())
+}
+
+fn on_request_pause_exploit(
+    evt: On<RequestPauseExploitEvent>,
+    mut player_state: ResMut<PlayerState>,
+) -> Result {
+    if let Some(exploit) = player_state
+        .active_exploits
+        .iter_mut()
+        .find(|exploit| exploit.id == evt.exploit_id)
+    {
+        exploit.script_executor.stop_execution();
+    }
+
+    Ok(())
+}
+
+fn on_request_resume_exploit(
+    evt: On<RequestResumeExploitEvent>,
+    mut player_state: ResMut<PlayerState>,
+) -> Result {
+    if let Some(exploit) = player_state
+        .active_exploits
+        .iter_mut()
+        .find(|exploit| exploit.id == evt.exploit_id)
+    {
+        exploit.script_executor.start_execution();
+    }
 
     Ok(())
 }
@@ -488,7 +542,6 @@ fn tutorial_on_script_created(
 
 fn tutorial_ui_system(
     mut context: EguiContexts,
-    mut window_state: ResMut<TestWindowState>,
     mut player_state: ResMut<PlayerState>,
 ) -> Result {
     let window = egui::Window::new(loc!(player_state, "ui_window_tutorial_title"))
