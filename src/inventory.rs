@@ -44,7 +44,7 @@ impl Inventory {
                     instruction_effects: vec![
                         (5_000_000, vec![
                             AlgorithmEffect::Modify {
-                                target: AlgorithmEffectTarget::Remote,
+                                target: AlgorithmEffectTarget::TargetServer,
                                 stat: ServerStatType::SiphonResist,
                                 potency: (-3..-1).into(),
                             }

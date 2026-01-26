@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
 use rand::Rng;
 use crate::server::ServerStatType;
@@ -55,19 +55,33 @@ impl From<Range<i32>> for AlgorithmEffectValue {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum AlgorithmEffectTarget {
     /// The algorithm effect will target the server running the algorithm.
     /// This is often used for self-buffs.
-    Host,
+    SelfServer,
 
     /// The algorithm effect will target the other server.
     /// This is often used for debuffs.
-    Remote,
+    TargetServer,
+}
+
+impl Debug for AlgorithmEffectTarget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            // ZJ-TODO: localize
+            Self::SelfServer => write!(f, "Self"),
+            Self::TargetServer => write!(f, "Target"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AlgorithmEffect {
+    /// `Terminate` damages the connection health between the two servers.
+    /// This is primarily used by opposing servers to disconnect the player's exploits.
+    Terminate { potency: AlgorithmEffectValue, } ,
+
     /// `Siphon` steals credits from the target machine.
     /// The higher the `potency`, the more credits will be stolen from the target.
     Siphon { potency: AlgorithmEffectValue, },
@@ -86,6 +100,9 @@ impl Display for AlgorithmEffect {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // ZJ-TODO: localize
         match self {
+            AlgorithmEffect::Terminate { potency }  => {
+                write!(f, "Terminate {potency}")
+            },
             AlgorithmEffect::Siphon { potency } => {
                 write!(f, "Siphon {potency}")
             },

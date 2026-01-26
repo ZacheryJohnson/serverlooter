@@ -60,6 +60,7 @@ impl InventoryGridItem for AlgorithmGridItem {
         //          this would order the display string to show more clearly what an algorithm does best
         for effect in effect_set {
             match effect {
+                AlgorithmEffect::Terminate { .. } => display_str.push_str("!"),
                 AlgorithmEffect::Siphon { .. } => display_str.push_str("$"),
                 AlgorithmEffect::Exfil { .. } => display_str.push_str("X"),
                 AlgorithmEffect::Modify { .. } => display_str.push_str("~"),

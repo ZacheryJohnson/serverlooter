@@ -25,14 +25,14 @@ impl AlgorithmGenerator {
             AlgorithmEffect::Siphon { potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
             AlgorithmEffect::Exfil { potency: AlgorithmEffectValue::Static(ph_val) },
             AlgorithmEffect::Exfil { potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::Host, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::Static(ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::Host, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::Host, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::Static(ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::Host, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::Remote, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::Static(ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::Remote, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::Remote, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::Static(ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::Remote, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::SelfServer, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::Static(ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::SelfServer, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::SelfServer, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::Static(ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::SelfServer, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::TargetServer, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::Static(ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::TargetServer, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::TargetServer, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::Static(ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::TargetServer, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
         ];
 
         let mut added_effects = vec![];
@@ -73,6 +73,7 @@ impl AlgorithmGenerator {
                         }
                     }
                 }
+                _ => todo!("generator: unsupported effect {:?}", new_effect),
             }
 
             added_effects.push(new_effect);

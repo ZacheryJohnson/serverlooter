@@ -20,15 +20,18 @@ use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use bevy_egui::egui::Widget;
 use unic_langid::LanguageIdentifier;
 use uuid::Uuid;
-use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectTarget};
+use crate::algorithm::algorithm::Algorithm;
+use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectTarget, AlgorithmEffectValue};
 use crate::algorithm::generator::AlgorithmGenerator;
+use crate::algorithm::id::AlgorithmId;
+use crate::algorithm::procedure::AlgorithmProcedure;
 use crate::event::request_pause_exploit::RequestPauseExploitEvent;
 use crate::event::request_resume_exploit::RequestResumeExploitEvent;
 use crate::event::request_start_exploit::RequestStartExploitEvent;
 use crate::event::request_stop_exploit::RequestStopExploitEvent;
 use crate::executor::Executor;
 use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inventory, InventoryItem, InventoryItemAdded};
-use crate::script::{Script, ScriptCreatedEvent, ScriptExecutor};
+use crate::script::{Script, ScriptCreatedEvent, ScriptExecutor, ScriptId};
 use crate::server::{Server, ServerStatInstance, ServerStatSource, ServerStatType};
 use crate::ui::panel::{Panel, exploit::*, market::*, script::*, server::*};
 
@@ -149,6 +152,9 @@ impl TutorialProgression {
 pub struct ExploitTarget {
     pub id: Uuid,
     pub server: Arc<Mutex<Server>>,
+    pub script: Arc<Mutex<Script>>,
+
+    script_executor: ScriptExecutor,
 }
 
 #[derive(Clone)]
@@ -157,9 +163,11 @@ pub struct ActiveExploit {
     pub script: Arc<Mutex<Script>>,
     pub hosting_server: Arc<Mutex<Server>>,
     pub clock_allocation_hz: u64,
+    pub connection_max_health: Arc<Mutex<u32>>,
+    pub connection_current_health: Arc<Mutex<u32>>,
 
     id: Uuid,
-    script_executor: ScriptExecutor,
+    script_executor: Arc<Mutex<ScriptExecutor>>,
 }
 
 #[derive(Clone)]
@@ -186,20 +194,23 @@ impl ActiveExploit {
             hosting_server,
             clock_allocation_hz,
             id,
-            script_executor,
+            // ZJ-TODO: this should be passed in from the server
+            connection_max_health: Arc::new(Mutex::new(50)),
+            connection_current_health: Arc::new(Mutex::new(50)),
+            script_executor: Arc::new(Mutex::new(script_executor)),
         }
     }
 
     pub fn progress(&self) -> u64 {
-        self.script_executor.progress()
+        self.script_executor.lock().unwrap().progress()
     }
 
     pub fn total_instructions(&self) -> u64 {
-        self.script_executor.total_instructions()
+        self.script_executor.lock().unwrap().total_instructions()
     }
 
     pub fn status(&self) -> ActiveExploitStatus {
-        if self.script_executor.is_paused() {
+        if self.script_executor.lock().unwrap().is_paused() {
             ActiveExploitStatus::Paused
         } else {
             ActiveExploitStatus::Running
@@ -237,6 +248,38 @@ struct UiState {
     exploit_panel_state: ExploitPanel,
 }
 
+fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
+    let script = Arc::new(Mutex::new(Script {
+        id: ScriptId::Id(0),
+        procedures: vec![
+            AlgorithmProcedure::from(&[
+                Arc::new(Mutex::new(Algorithm {
+                    id: AlgorithmId::Id(Uuid::new_v4()),
+                    instruction_count: 250_000,
+                    instruction_effects: vec![
+                        (250_000, vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ])
+                    ],
+                }))
+            ])
+        ],
+    }));
+
+    Arc::new(Mutex::new(ExploitTarget {
+        id: Uuid::new_v4(),
+        server: Arc::new(Mutex::new(Server {
+            name: "KawaiiCo".to_string(),
+            threads: 1,
+            clock_speed_hz: 1_600_000,
+            stats: vec![
+                ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::SiphonResist, 3),
+                ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::ExfilResist, 8),
+            ]
+        })),
+        script: script.clone(),
+        script_executor: script.lock().unwrap().executor(),
+    }))
+}
+
 fn main() {
     let mut app = App::new();
     app
@@ -267,17 +310,9 @@ fn main() {
                     stats: vec![],
                 }))
             ],
-            known_targets: vec![Arc::new(Mutex::new(ExploitTarget {
-                id: Uuid::new_v4(),
-                server: Arc::new(Mutex::new(Server {
-                    name: "KawaiiCo".to_string(),
-                    threads: 1,
-                    clock_speed_hz: 1_600_000,
-                    stats: vec![
-                        ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::SiphonResist, 3),
-                    ]
-                }))
-            }))],
+            known_targets: vec![
+                make_exploit_target(),
+            ],
             active_exploits: vec![],
             scripts: vec![],
             last_tick: Instant::now(),
@@ -331,25 +366,40 @@ fn update_ui(
             ));
             egui::widgets::ProgressBar::new(active_exploit.progress() as f32 / active_exploit.total_instructions() as f32)
                 .desired_width(ui.available_width() / 2.0)
+                .corner_radius(0.0)
                 .show_percentage()
                 .ui(ui);
-            match active_exploit.status() {
-                ActiveExploitStatus::Paused => {
-                    if ui.button("Resume").clicked() {
-                        commands.trigger(RequestResumeExploitEvent { exploit_id: active_exploit.id });
+
+            {
+                let current_health = active_exploit.connection_current_health.lock().unwrap().clone() as f32;
+                let max_health = active_exploit.connection_max_health.lock().unwrap().clone() as f32;
+                egui::widgets::ProgressBar::new(current_health / max_health)
+                    .desired_width(ui.available_width() / 2.0)
+                    .corner_radius(0.0)
+                    .text(if current_health != 0.0 { "Connection terminating..." } else { "Connection lost" })
+                    .ui(ui);
+            }
+
+            ui.horizontal(|ui| {
+                match active_exploit.status() {
+                    ActiveExploitStatus::Paused => {
+                        // ZJ-TODO: reinstate after exploits better support termination
+                        // if ui.button("Resume").clicked() {
+                        //     commands.trigger(RequestResumeExploitEvent { exploit_id: active_exploit.id });
+                        // }
+                    }
+                    ActiveExploitStatus::Running => {
+                        if ui.button("Pause").clicked() {
+                            commands.trigger(RequestPauseExploitEvent { exploit_id: active_exploit.id });
+                        }
                     }
                 }
-                ActiveExploitStatus::Running => {
-                    if ui.button("Pause").clicked() {
-                        commands.trigger(RequestPauseExploitEvent { exploit_id: active_exploit.id });
-                    }
+                if ui.button(loc!(player_state, "ui_confirmation_stop")).clicked() {
+                    commands.trigger(RequestStopExploitEvent {
+                        exploit_id: active_exploit.id,
+                    });
                 }
-            }
-            if ui.button(loc!(player_state, "ui_confirmation_stop")).clicked() {
-                commands.trigger(RequestStopExploitEvent {
-                    exploit_id: active_exploit.id,
-                });
-            }
+            });
         });
     }
 
@@ -487,7 +537,9 @@ fn on_request_start_exploit(
         existing_exploit.clock_allocation_hz = new_clock_speed_per_process;
     }
 
+    target.lock().unwrap().script_executor.start_execution();
     player_state.active_exploits.push(ActiveExploit::new(target, script, server, new_clock_speed_per_process));
+
 
     if matches!(player_state.progression, TutorialProgression::ExploitServersShown) {
         player_state.progression.advance();
@@ -514,7 +566,7 @@ fn on_request_pause_exploit(
         .iter_mut()
         .find(|exploit| exploit.id == evt.exploit_id)
     {
-        exploit.script_executor.stop_execution();
+        exploit.script_executor.lock().unwrap().stop_execution();
     }
 
     Ok(())
@@ -529,7 +581,7 @@ fn on_request_resume_exploit(
         .iter_mut()
         .find(|exploit| exploit.id == evt.exploit_id)
     {
-        exploit.script_executor.start_execution();
+        exploit.script_executor.lock().unwrap().start_execution();
     }
 
     Ok(())
@@ -696,12 +748,33 @@ fn tick_player_state(
         let server_speed = active_exploit.clock_allocation_hz;
         let ticks_since_last = (server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
 
-        let new_effects = active_exploit.script_executor.tick_execution(ticks_since_last);
-        if active_exploit.script_executor.is_complete() {
-            active_exploit.script_executor = active_exploit.script.lock().unwrap().executor();
-            active_exploit.script_executor.start_execution();
+        let new_effects = active_exploit.script_executor.lock().unwrap().tick_execution(ticks_since_last);
+        if active_exploit.script_executor.lock().unwrap().is_complete() {
+            std::mem::swap(
+                &mut active_exploit.script_executor,
+                &mut Arc::new(Mutex::new(active_exploit.script.lock().unwrap().executor()))
+            );
+            active_exploit.script_executor.lock().unwrap().start_execution();
         }
         pending_effects.push((active_exploit.clone(), new_effects));
+
+        let target_server_speed = active_exploit.target.lock().unwrap().server.lock().unwrap().clock_speed_hz;
+        let target_ticks_since_last = (target_server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
+        let mut exploit_target = active_exploit.target.lock().unwrap();
+        let new_target_effects = exploit_target.script_executor.tick_execution(target_ticks_since_last);
+        if exploit_target.script_executor.is_complete() {
+            let mut new_script_executor = exploit_target.script.lock().unwrap().executor();
+
+            std::mem::swap(
+                &mut exploit_target.script_executor,
+                &mut new_script_executor,
+            );
+            exploit_target.script_executor.start_execution();
+        }
+
+        // ZJ-TODO: this works because the targets are only generating Terminates
+        //          we should associate buffs/debuffs to the host machine so targets can self-buff/weaken the attacker
+        pending_effects.push((active_exploit.clone(), new_target_effects));
     }
 
     for (active_exploit, pending_effects) in pending_effects {
@@ -709,6 +782,16 @@ fn tick_player_state(
             let active_exploit = active_exploit.clone();
 
             match pending_effect {
+                AlgorithmEffect::Terminate { potency }  => {
+                    let value = potency.make_value();
+                    let old_health = active_exploit.connection_current_health.lock().unwrap().clone();
+                    let new_health = old_health.saturating_sub(value.abs() as u32);
+                    *active_exploit.connection_current_health.lock().unwrap() = new_health;
+
+                    if new_health == 0 {
+                        active_exploit.script_executor.lock().unwrap().stop_execution();
+                    }
+                }
                 AlgorithmEffect::Siphon { potency } => {
                     let value = potency.make_value();
                     let active_exploit = active_exploit.clone();
@@ -724,7 +807,18 @@ fn tick_player_state(
                     // ZJ-TODO: shoot off an event to do this rather than applying it ourselves
                     player_state.credits += siphon_value;
                 }
-                AlgorithmEffect::Exfil { .. } => {
+                AlgorithmEffect::Exfil { potency } => {
+                    let value = potency.make_value();
+                    let active_exploit = active_exploit.clone();
+                    let target_server = lock_and_clone!(active_exploit.target, server);
+                    let target_server = target_server.lock().unwrap();
+                    let target_stats = target_server.stats();
+                    let target_defense = target_stats.value_of(ServerStatType::ExfilResist);
+                    let exfil_value = value - target_defense;
+                    if exfil_value <= 0 {
+                        return;
+                    }
+
                     // ZJ-TODO: pass potency to generator
                     let algorithm = AlgorithmGenerator::generate();
 
@@ -734,8 +828,8 @@ fn tick_player_state(
                 }
                 AlgorithmEffect::Modify { target, stat, potency } => {
                     let server = match target {
-                        AlgorithmEffectTarget::Host => active_exploit.clone().hosting_server.clone(),
-                        AlgorithmEffectTarget::Remote => active_exploit.clone().target.lock().unwrap().server.clone(),
+                        AlgorithmEffectTarget::SelfServer => active_exploit.clone().hosting_server.clone(),
+                        AlgorithmEffectTarget::TargetServer => active_exploit.clone().target.lock().unwrap().server.clone(),
                     };
 
                     let script_id = active_exploit.script.lock().unwrap().id.clone();
