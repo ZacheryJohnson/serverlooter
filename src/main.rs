@@ -26,6 +26,7 @@ use crate::algorithm::generator::AlgorithmGenerator;
 use crate::algorithm::id::AlgorithmId;
 use crate::algorithm::procedure::AlgorithmProcedure;
 use crate::event::request_pause_exploit::RequestPauseExploitEvent;
+use crate::event::request_restart_exploit::RequestRestartExploitEvent;
 use crate::event::request_resume_exploit::RequestResumeExploitEvent;
 use crate::event::request_start_exploit::RequestStartExploitEvent;
 use crate::event::request_stop_exploit::RequestStopExploitEvent;
@@ -166,13 +167,16 @@ pub struct ActiveExploit {
     pub connection_max_health: Arc<Mutex<u32>>,
     pub connection_current_health: Arc<Mutex<u32>>,
 
+    auto_reconnect: Arc<Mutex<bool>>,
+    has_connected: Arc<Mutex<bool>>,
     id: Uuid,
     script_executor: Arc<Mutex<ScriptExecutor>>,
 }
 
 #[derive(Clone)]
 pub enum ActiveExploitStatus {
-    Paused,
+    Disconnected,
+    Connecting,
     Running,
 }
 
@@ -182,23 +186,33 @@ impl ActiveExploit {
         script: Arc<Mutex<Script>>,
         hosting_server: Arc<Mutex<Server>>,
         clock_allocation_hz: u64,
+        auto_reconnect: bool,
     ) -> ActiveExploit {
-        let mut script_executor = script.lock().unwrap().clone().into_executor();
-        script_executor.start_execution();
-
         let id = Uuid::new_v4();
 
-        ActiveExploit {
+        let mut new_exploit = ActiveExploit {
             target,
-            script,
+            script: script.clone(),
             hosting_server,
             clock_allocation_hz,
             id,
-            // ZJ-TODO: this should be passed in from the server
-            connection_max_health: Arc::new(Mutex::new(50)),
-            connection_current_health: Arc::new(Mutex::new(50)),
-            script_executor: Arc::new(Mutex::new(script_executor)),
-        }
+            connection_max_health: Arc::default(),
+            connection_current_health: Arc::default(),
+            script_executor: Arc::default(),
+            has_connected: Arc::default(),
+            auto_reconnect: Arc::new(Mutex::new(auto_reconnect)),
+        };
+
+        new_exploit.restart();
+        new_exploit
+    }
+
+    pub fn restart(&mut self) {
+        // ZJ-TODO: this should be passed in from the server
+        self.connection_max_health = Arc::new(Mutex::new(50));
+        self.connection_current_health = Arc::new(Mutex::new(0));
+        self.script_executor = Arc::new(Mutex::new(self.script.lock().unwrap().clone().into_executor()));
+        self.has_connected = Arc::new(Mutex::new(false));
     }
 
     pub fn progress(&self) -> u64 {
@@ -210,12 +224,49 @@ impl ActiveExploit {
     }
 
     pub fn status(&self) -> ActiveExploitStatus {
-        if self.script_executor.lock().unwrap().is_paused() {
-            ActiveExploitStatus::Paused
+        if *self.has_connected.lock().unwrap() {
+            if *self.connection_current_health.lock().unwrap() == 0 {
+                ActiveExploitStatus::Disconnected
+            } else {
+                ActiveExploitStatus::Running
+            }
         } else {
-            ActiveExploitStatus::Running
+            ActiveExploitStatus::Connecting
         }
     }
+
+    pub fn tick(&mut self, ticks_since_last: u64) -> Vec<AlgorithmEffect> {
+        if !*self.has_connected.lock().unwrap() {
+            let mut current_health = self.connection_current_health.lock().unwrap();
+            let max_health = self.connection_max_health.lock().unwrap();
+
+            let health_increase_per_tick = 1; // ZJ-TODO
+            *current_health = (*current_health + health_increase_per_tick).min(*max_health);
+
+            if *current_health >= *max_health {
+                *self.has_connected.lock().unwrap() = true;
+                self.script_executor.lock().unwrap().start_execution();
+                self.target.lock().unwrap().script_executor.start_execution();
+            }
+
+            return vec![];
+        }
+
+        let new_effects = self.script_executor.lock().unwrap().tick_execution(ticks_since_last);
+        if self.script_executor.lock().unwrap().is_complete() {
+            std::mem::swap(
+                &mut self.script_executor,
+                &mut Arc::new(Mutex::new(self.script.lock().unwrap().executor()))
+            );
+            self.script_executor.lock().unwrap().start_execution();
+        }
+
+        new_effects
+    }
+}
+
+pub struct PlayerUnlocks {
+    exploit_auto_reconnect: bool,
 }
 
 #[derive(Resource)]
@@ -229,6 +280,7 @@ pub struct PlayerState {
     active_exploits: Vec<ActiveExploit>,
     scripts: Vec<Arc<Mutex<Script>>>,
     last_tick: Instant,
+    player_unlocks: PlayerUnlocks,
 }
 
 enum ActivePanel {
@@ -250,7 +302,7 @@ struct UiState {
 
 fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
     let script = Arc::new(Mutex::new(Script {
-        id: ScriptId::Id(0),
+        id: ScriptId::Invalid,
         procedures: vec![
             AlgorithmProcedure::from(&[
                 Arc::new(Mutex::new(Algorithm {
@@ -296,6 +348,7 @@ fn main() {
         .add_observer(on_request_start_exploit)
         .add_observer(on_request_stop_exploit)
         .add_observer(on_request_pause_exploit)
+        .add_observer(on_request_restart_exploit)
         .add_observer(on_request_resume_exploit)
         .insert_resource(PlayerState {
             progression: TutorialProgression::None,
@@ -316,6 +369,9 @@ fn main() {
             active_exploits: vec![],
             scripts: vec![],
             last_tick: Instant::now(),
+            player_unlocks: PlayerUnlocks {
+                exploit_auto_reconnect: true,
+            }
         })
         .insert_resource(UiState {
             active_panel: ActivePanel::Home,
@@ -373,32 +429,51 @@ fn update_ui(
             {
                 let current_health = active_exploit.connection_current_health.lock().unwrap().clone() as f32;
                 let max_health = active_exploit.connection_max_health.lock().unwrap().clone() as f32;
+                let text = match active_exploit.status() {
+                    ActiveExploitStatus::Disconnected => "Connection lost",
+                    ActiveExploitStatus::Connecting => "Connecting...",
+                    ActiveExploitStatus::Running => "Connection terminating..."
+                }.to_string();
+
                 egui::widgets::ProgressBar::new(current_health / max_health)
                     .desired_width(ui.available_width() / 2.0)
                     .corner_radius(0.0)
-                    .text(if current_health != 0.0 { "Connection terminating..." } else { "Connection lost" })
+                    .text(text)
                     .ui(ui);
             }
 
             ui.horizontal(|ui| {
                 match active_exploit.status() {
-                    ActiveExploitStatus::Paused => {
-                        // ZJ-TODO: reinstate after exploits better support termination
-                        // if ui.button("Resume").clicked() {
-                        //     commands.trigger(RequestResumeExploitEvent { exploit_id: active_exploit.id });
-                        // }
-                    }
                     ActiveExploitStatus::Running => {
                         if ui.button("Pause").clicked() {
                             commands.trigger(RequestPauseExploitEvent { exploit_id: active_exploit.id });
                         }
                     }
+                    ActiveExploitStatus::Disconnected => {
+                        if *active_exploit.auto_reconnect.lock().unwrap() {
+                            commands.trigger(RequestRestartExploitEvent { exploit_id: active_exploit.id })
+                        } else {
+                            if ui.button("Connect").clicked() {
+                                commands.trigger(RequestRestartExploitEvent { exploit_id: active_exploit.id })
+                            }
+                        }
+                    }
+                    _ => {}
                 }
                 if ui.button(loc!(player_state, "ui_confirmation_stop")).clicked() {
                     commands.trigger(RequestStopExploitEvent {
                         exploit_id: active_exploit.id,
                     });
                 }
+
+                let checkbox = ui.add_enabled(
+                    player_state.player_unlocks.exploit_auto_reconnect,
+                    egui::Checkbox::new(&mut *active_exploit.auto_reconnect.lock().unwrap(), "Auto Reconnect")
+                );
+
+                checkbox.on_disabled_hover_ui(|ui| {
+                    ui.label("Unlocked in Market");
+                });
             });
         });
     }
@@ -537,9 +612,14 @@ fn on_request_start_exploit(
         existing_exploit.clock_allocation_hz = new_clock_speed_per_process;
     }
 
-    target.lock().unwrap().script_executor.start_execution();
-    player_state.active_exploits.push(ActiveExploit::new(target, script, server, new_clock_speed_per_process));
-
+    let auto_reconnect = player_state.player_unlocks.exploit_auto_reconnect;
+    player_state.active_exploits.push(ActiveExploit::new(
+        target,
+        script,
+        server,
+        new_clock_speed_per_process,
+        auto_reconnect,
+    ));
 
     if matches!(player_state.progression, TutorialProgression::ExploitServersShown) {
         player_state.progression.advance();
@@ -567,6 +647,21 @@ fn on_request_pause_exploit(
         .find(|exploit| exploit.id == evt.exploit_id)
     {
         exploit.script_executor.lock().unwrap().stop_execution();
+    }
+
+    Ok(())
+}
+
+fn on_request_restart_exploit(
+    evt: On<RequestRestartExploitEvent>,
+    mut player_state: ResMut<PlayerState>,
+) -> Result {
+    if let Some(exploit) = player_state
+        .active_exploits
+        .iter_mut()
+        .find(|exploit| exploit.id == evt.exploit_id)
+    {
+        exploit.restart();
     }
 
     Ok(())
@@ -748,14 +843,7 @@ fn tick_player_state(
         let server_speed = active_exploit.clock_allocation_hz;
         let ticks_since_last = (server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
 
-        let new_effects = active_exploit.script_executor.lock().unwrap().tick_execution(ticks_since_last);
-        if active_exploit.script_executor.lock().unwrap().is_complete() {
-            std::mem::swap(
-                &mut active_exploit.script_executor,
-                &mut Arc::new(Mutex::new(active_exploit.script.lock().unwrap().executor()))
-            );
-            active_exploit.script_executor.lock().unwrap().start_execution();
-        }
+        let new_effects = active_exploit.tick(ticks_since_last);
         pending_effects.push((active_exploit.clone(), new_effects));
 
         let target_server_speed = active_exploit.target.lock().unwrap().server.lock().unwrap().clock_speed_hz;

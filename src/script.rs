@@ -241,7 +241,7 @@ impl Executor for AlgorithmProcedureExecutor {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ScriptExecutor {
     algorithm_procedure_executors: Vec<AlgorithmProcedureExecutor>,
     is_paused: bool,
