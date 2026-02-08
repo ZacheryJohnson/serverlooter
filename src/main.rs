@@ -23,19 +23,19 @@ use unic_langid::LanguageIdentifier;
 use uuid::Uuid;
 use crate::active_exploit::{ActiveExploit, ActiveExploitStatus, ExploitTarget};
 use crate::algorithm::algorithm::Algorithm;
-use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectTarget, AlgorithmEffectValue};
+use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectApplication, AlgorithmEffectTarget, AlgorithmEffectValue};
 use crate::algorithm::generator::AlgorithmGenerator;
 use crate::algorithm::id::AlgorithmId;
 use crate::algorithm::procedure::AlgorithmProcedure;
+use crate::event::modify_credits::{ModificationSource, ModifyCreditsEvent};
 use crate::event::request_pause_exploit::RequestPauseExploitEvent;
 use crate::event::request_restart_exploit::RequestRestartExploitEvent;
 use crate::event::request_resume_exploit::RequestResumeExploitEvent;
 use crate::event::request_start_exploit::RequestStartExploitEvent;
 use crate::event::request_stop_exploit::RequestStopExploitEvent;
-use crate::executor::Executor;
 use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inventory, InventoryItem, InventoryItemAdded};
-use crate::script::{Script, ScriptCreatedEvent, ScriptExecutor, ScriptId};
-use crate::server::{Server, ServerStatInstance, ServerStatSource, ServerStatType};
+use crate::script::{Script, ScriptCreatedEvent, ScriptId};
+use crate::server::{Server, ServerStatInstance, ServerStatInstances, ServerStatSource, ServerStatType, ServerStats};
 use crate::ui::panel::{Panel, exploit::*, market::*, script::*, server::*};
 
 const TICKS_PER_SECOND: u8 = 20;
@@ -193,10 +193,10 @@ fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
             name: "KawaiiCo".to_string(),
             threads: 1,
             clock_speed_hz: 1_600_000,
-            stats: vec![
+            stats: ServerStatInstances::from(&[
                 ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::SiphonResist, 3),
                 ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::ExfilResist, 8),
-            ]
+            ])
         })),
         Arc::new(Mutex::new(Script {
             id: ScriptId::Invalid,
@@ -204,10 +204,34 @@ fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
                 AlgorithmProcedure::from(&[
                     Arc::new(Mutex::new(Algorithm {
                         id: AlgorithmId::Id(Uuid::new_v4()),
-                        instruction_count: 250_000,
+                        instruction_count: 1_000_000,
                         instruction_effects: vec![
-                            (250_000, vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ])
+                            (250_000, vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
+                            (500_000, vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
+                            (750_000, vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
+                            (1_000_000, vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
                         ],
+                    }))
+                ]),
+                AlgorithmProcedure::from(&[
+                    Arc::new(Mutex::new(Algorithm {
+                        id: AlgorithmId::Id(Uuid::new_v4()),
+                        instruction_count: 1_000_000,
+                        instruction_effects: vec![
+                            (1_000_000, vec![
+                                // ZJ-TODO: would be nice to have a PurgeAll
+                                AlgorithmEffect::Purge {
+                                    potency: AlgorithmEffectValue::Static(1),
+                                    target: AlgorithmEffectTarget::SelfServer,
+                                    stat: ServerStatType::SiphonResist,
+                                },
+                                AlgorithmEffect::Purge {
+                                    potency: AlgorithmEffectValue::Static(1),
+                                    target: AlgorithmEffectTarget::SelfServer,
+                                    stat: ServerStatType::ExfilResist,
+                                }
+                            ])
+                        ]
                     }))
                 ])
             ],
@@ -233,6 +257,7 @@ fn main() {
         .add_observer(on_request_pause_exploit)
         .add_observer(on_request_restart_exploit)
         .add_observer(on_request_resume_exploit)
+        .add_observer(on_modify_credits)
         .insert_resource(PlayerState {
             progression: TutorialProgression::None,
             language_identifier: "en-US".parse().unwrap(),
@@ -243,7 +268,7 @@ fn main() {
                     name: "fe80:0070::".to_string(),
                     threads: 2,
                     clock_speed_hz: 2_000_000,
-                    stats: vec![],
+                    stats: ServerStatInstances::new(),
                 }))
             ],
             known_targets: vec![
@@ -296,6 +321,11 @@ fn update_ui(
         window.show(&ctx, |ui| {
             ui.label(format!("Your Server: {}", lock_and_clone!(active_exploit.hosting_server, name)));
             ui.label(format!("Target Server: {}", lock_and_clone!(active_exploit.target, server, name)));
+            let stat_values = lock_and_clone!(active_exploit.target, server, stats).stat_values();
+            for (stat_type, stat_value) in stat_values {
+                ui.label(format!("\t{stat_type:?}: {stat_value}"));
+            }
+
             ui.label(format!("Allocated CPU: {}",
                 loc!(
                     player_state,
@@ -565,6 +595,15 @@ fn on_request_resume_exploit(
     Ok(())
 }
 
+fn on_modify_credits(
+    evt: On<ModifyCreditsEvent>,
+    mut player_state: ResMut<PlayerState>,
+) -> Result {
+    player_state.credits = player_state.credits.saturating_add_signed(evt.credits as i128);
+
+    Ok(())
+}
+
 fn on_script_created(
     evt: On<ScriptCreatedEvent>,
     mut player_state: ResMut<PlayerState>,
@@ -738,71 +777,107 @@ fn tick_player_state(
     }
 
     for (active_exploit, pending_effects) in pending_effects {
-        for pending_effect in &pending_effects {
-            let mut active_exploit = active_exploit.clone();
+        for pending_effect in pending_effects {
+            process_algorithm_effect_application(
+                &mut commands,
+                pending_effect,
+                active_exploit.clone(),
+            );
+        }
+    }
+}
 
-            match pending_effect {
-                AlgorithmEffect::Terminate { potency }  => {
-                    let value = potency.make_value();
-                    let old_health = active_exploit.connection_current_health.lock().unwrap().clone();
-                    let new_health = old_health.saturating_sub(value.abs() as u32);
-                    *active_exploit.connection_current_health.lock().unwrap() = new_health;
+fn process_algorithm_effect_application(
+    commands: &mut Commands,
+    application: AlgorithmEffectApplication,
+    mut active_exploit: ActiveExploit,
+) {
+    match application.effect {
+        AlgorithmEffect::Terminate { potency }  => {
+            let value = potency.make_value();
+            let old_health = active_exploit.connection_current_health.lock().unwrap().clone();
+            let new_health = old_health.saturating_sub(value.abs() as u32);
+            *active_exploit.connection_current_health.lock().unwrap() = new_health;
 
-                    if new_health == 0 {
-                        active_exploit.stop_execution();
-                    }
-                }
-                AlgorithmEffect::Siphon { potency } => {
-                    let value = potency.make_value();
-                    let active_exploit = active_exploit.clone();
-                    let target_server = lock_and_clone!(active_exploit.target, server);
-                    let target_server = target_server.lock().unwrap();
-                    let target_stats = target_server.stats();
-
-                    // ZJ-TODO: for now, don't let resists fall below 0
-                    //          there's design space to let them do so, but too much trivializes content
-                    let target_defense = target_stats.value_of(ServerStatType::SiphonResist).max(0);
-                    let siphon_value = (value - target_defense).max(0) as u128;
-
-                    // ZJ-TODO: shoot off an event to do this rather than applying it ourselves
-                    player_state.credits += siphon_value;
-                }
-                AlgorithmEffect::Exfil { potency } => {
-                    let value = potency.make_value();
-                    let active_exploit = active_exploit.clone();
-                    let target_server = lock_and_clone!(active_exploit.target, server);
-                    let target_server = target_server.lock().unwrap();
-                    let target_stats = target_server.stats();
-                    let target_defense = target_stats.value_of(ServerStatType::ExfilResist);
-                    let exfil_value = value - target_defense;
-                    if exfil_value <= 0 {
-                        return;
-                    }
-
-                    // ZJ-TODO: pass potency to generator
-                    let algorithm = AlgorithmGenerator::generate();
-
-                    commands.trigger(InventoryItemAdded {
-                        item: InventoryItem::Algorithm(algorithm),
-                    });
-                }
-                AlgorithmEffect::Modify { target, stat, potency } => {
-                    let server = match target {
-                        AlgorithmEffectTarget::SelfServer => active_exploit.clone().hosting_server.clone(),
-                        AlgorithmEffectTarget::TargetServer => active_exploit.clone().target.lock().unwrap().server.clone(),
-                    };
-
-                    let script_id = active_exploit.script.lock().unwrap().id.clone();
-
-                    server.lock().unwrap().stats_mut().apply(
-                        ServerStatInstance::new(
-                            ServerStatSource::Script(script_id),
-                            stat.to_owned(),
-                            potency.make_value()
-                        )
-                    )
-                }
+            if new_health == 0 {
+                active_exploit.stop_execution();
             }
+        }
+        AlgorithmEffect::Siphon { potency } => {
+            let value = potency.make_value();
+            let target_server = application.target_server.lock().unwrap();
+            let target_stats = &target_server.stats;
+
+            let target_defense = target_stats.value_of(ServerStatType::SiphonResist);
+            let siphon_value = (value - target_defense).max(0) as i64;
+
+            commands.trigger(ModifyCreditsEvent {
+                credits: siphon_value,
+                source: ModificationSource::Script(application.script.lock().unwrap().id.clone()),
+            });
+        }
+        AlgorithmEffect::Exfil { potency } => {
+            let value = potency.make_value();
+            let target_server = application.target_server.lock().unwrap();
+            let target_stats = &target_server.stats;
+            let target_defense = target_stats.value_of(ServerStatType::ExfilResist);
+            let exfil_value = value - target_defense;
+            if exfil_value <= 0 {
+                return;
+            }
+
+            // ZJ-TODO: pass potency to generator
+            let algorithm = AlgorithmGenerator::generate();
+
+            commands.trigger(InventoryItemAdded {
+                item: InventoryItem::Algorithm(algorithm),
+            });
+        }
+        AlgorithmEffect::Modify { target, stat, potency } => {
+            let server = match target {
+                AlgorithmEffectTarget::SelfServer => application.host_server,
+                AlgorithmEffectTarget::TargetServer => application.target_server,
+            };
+
+            let script_id = application.script.lock().unwrap().id.clone();
+
+            let purged_stats = server.lock().unwrap().stats.apply_and_purge(
+                ServerStatInstance::new(
+                    ServerStatSource::Script(script_id),
+                    stat.to_owned(),
+                    potency.make_value()
+                )
+            );
+        }
+        AlgorithmEffect::Purge { target, stat, potency } => {
+            let (server, is_self) = match target {
+                AlgorithmEffectTarget::SelfServer => (application.host_server, true),
+                AlgorithmEffectTarget::TargetServer => (application.target_server, false),
+            };
+
+            let mut server = server.lock().unwrap();
+            let script_id = active_exploit.script.lock().unwrap().id.clone();
+
+            let server_stat_value = server.stats.modification_of(stat.to_owned());
+            if server_stat_value >= 0 && is_self || server_stat_value <= 0 && !is_self {
+                return;
+            }
+
+            let potency_roll = {
+                if is_self {
+                    potency.make_value().max(0)
+                } else {
+                    potency.make_value().min(0)
+                }
+            };
+
+            let purged_stats = server.stats.apply_and_purge(
+                ServerStatInstance::new(
+                    ServerStatSource::Script(script_id),
+                    stat.to_owned(),
+                    potency_roll
+                )
+            );
         }
     }
 }

@@ -34,7 +34,7 @@ pub struct Script {
 
 impl Script {
     pub fn empty() -> Script {
-        Script { id: ScriptId::Invalid, procedures: Vec::new() }
+        Script::new(ScriptId::Invalid, Vec::new())
     }
 
     pub fn new(id: ScriptId, procedures: Vec<AlgorithmProcedure>) -> Script {

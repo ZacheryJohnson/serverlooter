@@ -46,7 +46,7 @@ impl Inventory {
                             AlgorithmEffect::Modify {
                                 target: AlgorithmEffectTarget::TargetServer,
                                 stat: ServerStatType::SiphonResist,
-                                potency: (-3..-1).into(),
+                                potency: (-5..-1).into(),
                             }
                         ])
                     ]

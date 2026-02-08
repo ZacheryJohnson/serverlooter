@@ -64,6 +64,7 @@ impl InventoryGridItem for AlgorithmGridItem {
                 AlgorithmEffect::Siphon { .. } => display_str.push_str("$"),
                 AlgorithmEffect::Exfil { .. } => display_str.push_str("X"),
                 AlgorithmEffect::Modify { .. } => display_str.push_str("~"),
+                AlgorithmEffect::Purge { .. } => display_str.push_str("+"),
             }
         }
 

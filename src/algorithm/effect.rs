@@ -1,7 +1,9 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
+use std::sync::{Arc, Mutex};
 use rand::Rng;
-use crate::server::ServerStatType;
+use crate::script::Script;
+use crate::server::{Server, ServerStatType};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AlgorithmEffectValue {
@@ -76,6 +78,13 @@ impl Debug for AlgorithmEffectTarget {
     }
 }
 
+pub struct AlgorithmEffectApplication {
+    pub host_server: Arc<Mutex<Server>>,
+    pub target_server: Arc<Mutex<Server>>,
+    pub effect: AlgorithmEffect,
+    pub script: Arc<Mutex<Script>>,
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AlgorithmEffect {
     /// `Terminate` damages the connection health between the two servers.
@@ -94,6 +103,12 @@ pub enum AlgorithmEffect {
     /// This can be used to buff or debuff a `target`, either the hosting server or remote target server.
     /// The higher the `potency`, the stronger the effect on `stat`.
     Modify { target: AlgorithmEffectTarget, stat: ServerStatType, potency: AlgorithmEffectValue },
+
+    /// `Purge` removes negative modifications of the type `stat` from `target`.
+    /// Unlike [Modify](AlgorithmEffect::Modify), `Purge` will only return a stat to its baseline level.
+    /// The higher the `potency`, the more negative modifications on self will be removed,
+    /// or positive modifications on target will be removed.
+    Purge { target: AlgorithmEffectTarget, stat: ServerStatType, potency: AlgorithmEffectValue },
 }
 
 impl Display for AlgorithmEffect {
@@ -111,6 +126,9 @@ impl Display for AlgorithmEffect {
             },
             AlgorithmEffect::Modify { target, stat, potency } => {
                 write!(f, "Modify {target:?}'s {stat:?} by {potency}")
+            },
+            AlgorithmEffect::Purge { target, stat, potency } => {
+                write!(f, "Purge {target:?}'s {stat:?} by {potency}")
             }
         }
     }
