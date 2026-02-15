@@ -44,7 +44,7 @@ const TIME_BETWEEN_TICKS: Duration = Duration::from_millis(1000 / TICKS_PER_SECO
 fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
     Arc::new(Mutex::new(ExploitTarget::new(
         Arc::new(Mutex::new(Server {
-            name: "KawaiiCo".to_string(),
+            name: "<CORP NAME HERE>".to_string(),
             threads: 1,
             clock_speed_hz: 1_600_000,
             stats: ServerStatInstances::from(&[

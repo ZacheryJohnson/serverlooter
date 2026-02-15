@@ -1,5 +1,4 @@
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 use bevy::prelude::{Commands, On, ResMut};
 use crate::event::request_start_exploit::RequestStartExploitEvent;
 use crate::player_state::state::{PlayerState, PlayerUnlock};
@@ -182,12 +181,12 @@ pub(crate) fn tick_active_exploits(
     mut player_state: ResMut<PlayerState>,
 ) {
     // Only tick at a fixed rate
-    let time_since_last_tick = Instant::now().duration_since(player_state.last_tick);
+    let time_since_last_tick = web_time::Instant::now().duration_since(player_state.last_tick);
     if time_since_last_tick < TIME_BETWEEN_TICKS {
         return;
     }
 
-    player_state.last_tick = Instant::now();
+    player_state.last_tick = web_time::Instant::now();
 
     let mut pending_effects = vec![];
     for active_exploit in &player_state.active_exploits {

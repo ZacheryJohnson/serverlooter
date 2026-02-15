@@ -1,5 +1,4 @@
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 use bevy::app::{App, FixedUpdate, Plugin};
 use crate::inventory::Inventory;
 use crate::server::{Server, ServerStatInstances};
@@ -40,7 +39,7 @@ impl Plugin for PlayerStatePlugin {
                 ],
                 active_exploits: vec![],
                 scripts: vec![],
-                last_tick: Instant::now(),
+                last_tick: web_time::Instant::now(),
                 player_unlocks: PlayerUnlocks {
                     exploit_auto_reconnect: false,
                 }

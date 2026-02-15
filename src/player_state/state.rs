@@ -1,5 +1,4 @@
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 use bevy::prelude::Resource;
 use fluent_templates::LanguageIdentifier;
 use crate::active_exploit::{ActiveExploit, ExploitTarget};
@@ -26,6 +25,6 @@ pub struct PlayerState {
     pub known_targets: Vec<Arc<Mutex<ExploitTarget>>>,
     pub active_exploits: Vec<Arc<Mutex<ActiveExploit>>>,
     pub scripts: Vec<Arc<Mutex<Script>>>,
-    pub last_tick: Instant,
+    pub last_tick: web_time::Instant,
     pub player_unlocks: PlayerUnlocks,
 }
