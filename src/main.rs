@@ -37,6 +37,8 @@ use crate::inventory::{on_inventory_item_added, on_inventory_item_removed, Inven
 use crate::script::{Script, ScriptCreatedEvent, ScriptId};
 use crate::server::{Server, ServerStatInstance, ServerStatInstances, ServerStatSource, ServerStatType, ServerStats};
 use crate::ui::panel::{Panel, exploit::*, market::*, script::*, server::*};
+use crate::ui::window::active_exploit::ActiveExploitWindow;
+use crate::ui::window::Window;
 
 const TICKS_PER_SECOND: u8 = 20;
 const _: () = assert!(
@@ -164,7 +166,7 @@ pub struct PlayerState {
     inventory: Inventory,
     servers: Vec<Arc<Mutex<Server>>>,
     known_targets: Vec<Arc<Mutex<ExploitTarget>>>,
-    active_exploits: Vec<ActiveExploit>,
+    active_exploits: Vec<Arc<Mutex<ActiveExploit>>>,
     scripts: Vec<Arc<Mutex<Script>>>,
     last_tick: Instant,
     player_unlocks: PlayerUnlocks,
@@ -185,6 +187,8 @@ struct UiState {
     server_panel_state: ServersPanel,
     scripts_panel_state: ScriptsPanel,
     exploit_panel_state: ExploitPanel,
+
+    active_exploit_windows: Vec<ActiveExploitWindow>,
 }
 
 fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
@@ -287,6 +291,7 @@ fn main() {
             server_panel_state: ServersPanel {},
             scripts_panel_state: ScriptsPanel::new(),
             exploit_panel_state: ExploitPanel::new(),
+            active_exploit_windows: vec![],
         });
 
     #[cfg(debug_assertions)]
@@ -311,84 +316,8 @@ fn update_ui(
     let ctx = context.ctx_mut()?;
     update_side_panel(ctx, &mut ui_state, &mut player_state)?;
 
-    for active_exploit in &player_state.active_exploits {
-        let mut xd = true;
-        let window = egui::Window::new("Active Exploit")
-            .id(format!("active_exploit_{}", active_exploit.id.to_string()).into())
-            .fade_in(true)
-            .fade_out(true)
-            .open(&mut xd);
-        window.show(&ctx, |ui| {
-            ui.label(format!("Your Server: {}", lock_and_clone!(active_exploit.hosting_server, name)));
-            ui.label(format!("Target Server: {}", lock_and_clone!(active_exploit.target, server, name)));
-            let stat_values = lock_and_clone!(active_exploit.target, server, stats).stat_values();
-            for (stat_type, stat_value) in stat_values {
-                ui.label(format!("\t{stat_type:?}: {stat_value}"));
-            }
-
-            ui.label(format!("Allocated CPU: {}",
-                loc!(
-                    player_state,
-                    "ui_server_clock_speed",
-                    clock_speed_to_loc_args(active_exploit.clock_allocation_hz)
-                )
-            ));
-            egui::widgets::ProgressBar::new(active_exploit.progress() as f32 / active_exploit.total_instructions() as f32)
-                .desired_width(ui.available_width() / 2.0)
-                .corner_radius(0.0)
-                .show_percentage()
-                .ui(ui);
-
-            {
-                let current_health = active_exploit.connection_current_health.lock().unwrap().clone() as f32;
-                let max_health = active_exploit.connection_max_health.lock().unwrap().clone() as f32;
-                let text = match active_exploit.status() {
-                    ActiveExploitStatus::Disconnected => "Connection lost",
-                    ActiveExploitStatus::Connecting => "Connecting...",
-                    ActiveExploitStatus::Running => "Connection terminating..."
-                }.to_string();
-
-                egui::widgets::ProgressBar::new(current_health / max_health)
-                    .desired_width(ui.available_width() / 2.0)
-                    .corner_radius(0.0)
-                    .text(text)
-                    .ui(ui);
-            }
-
-            ui.horizontal(|ui| {
-                match active_exploit.status() {
-                    ActiveExploitStatus::Running => {
-                        if ui.button("Pause").clicked() {
-                            commands.trigger(RequestPauseExploitEvent { exploit_id: active_exploit.id });
-                        }
-                    }
-                    ActiveExploitStatus::Disconnected => {
-                        if *active_exploit.auto_reconnect.lock().unwrap() {
-                            commands.trigger(RequestRestartExploitEvent { exploit_id: active_exploit.id })
-                        } else {
-                            if ui.button("Connect").clicked() {
-                                commands.trigger(RequestRestartExploitEvent { exploit_id: active_exploit.id })
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-                if ui.button(loc!(player_state, "ui_confirmation_stop")).clicked() {
-                    commands.trigger(RequestStopExploitEvent {
-                        exploit_id: active_exploit.id,
-                    });
-                }
-
-                let checkbox = ui.add_enabled(
-                    player_state.player_unlocks.exploit_auto_reconnect,
-                    egui::Checkbox::new(&mut *active_exploit.auto_reconnect.lock().unwrap(), "Auto Reconnect")
-                );
-
-                checkbox.on_disabled_hover_ui(|ui| {
-                    ui.label("Unlocked in Market");
-                });
-            });
-        });
+    for window in &mut ui_state.active_exploit_windows {
+        window.update(&mut commands, ctx, &mut player_state);
     }
 
     // Main panel must be last
@@ -502,6 +431,7 @@ fn update_side_panel(
 fn on_request_start_exploit(
     evt: On<RequestStartExploitEvent>,
     mut player_state: ResMut<PlayerState>,
+    mut ui_state: ResMut<UiState>,
 ) -> Result {
     let target = evt.target.clone();
     let script = evt.script.clone();
@@ -516,23 +446,27 @@ fn on_request_start_exploit(
     let new_total_processes = player_state
         .active_exploits
         .iter()
-        .filter(|exploit| lock_and_clone!(exploit.hosting_server, name) == target_server_name)
+        .filter(|exploit| lock_and_clone!(exploit, hosting_server, name) == target_server_name)
         .count() as u64 + 1;
 
     let new_clock_speed_per_process = lock_and_clone!(server, clock_speed_hz) / new_total_processes;
 
     for existing_exploit in &mut player_state.active_exploits {
+        let mut existing_exploit = existing_exploit.lock().unwrap();
         existing_exploit.clock_allocation_hz = new_clock_speed_per_process;
     }
 
     let auto_reconnect = player_state.player_unlocks.exploit_auto_reconnect;
-    player_state.active_exploits.push(ActiveExploit::new(
+    let active_exploit = Arc::new(Mutex::new(ActiveExploit::new(
         target,
         script,
         server,
         new_clock_speed_per_process,
         auto_reconnect,
-    ));
+    )));
+
+    ui_state.active_exploit_windows.push(ActiveExploitWindow::new(active_exploit.clone()));
+    player_state.active_exploits.push(active_exploit);
 
     if matches!(player_state.progression, TutorialProgression::ExploitServersShown) {
         player_state.progression.advance();
@@ -545,7 +479,9 @@ fn on_request_stop_exploit(
     evt: On<RequestStopExploitEvent>,
     mut player_state: ResMut<PlayerState>,
 ) -> Result {
-    player_state.active_exploits.retain(|exploit| exploit.id != evt.exploit_id);
+    player_state.active_exploits.retain(|exploit| {
+        lock_and_clone!(exploit, id) != evt.exploit_id
+    });
 
     Ok(())
 }
@@ -557,9 +493,11 @@ fn on_request_pause_exploit(
     if let Some(exploit) = player_state
         .active_exploits
         .iter_mut()
-        .find(|exploit| exploit.id == evt.exploit_id)
+        .find(|exploit| {
+            lock_and_clone!(exploit, id) == evt.exploit_id
+        })
     {
-        exploit.stop_execution();
+        exploit.lock().unwrap().stop_execution();
     }
 
     Ok(())
@@ -572,9 +510,11 @@ fn on_request_restart_exploit(
     if let Some(exploit) = player_state
         .active_exploits
         .iter_mut()
-        .find(|exploit| exploit.id == evt.exploit_id)
+        .find(|exploit| {
+            lock_and_clone!(exploit, id) == evt.exploit_id
+        })
     {
-        exploit.restart();
+        exploit.lock().unwrap().restart();
     }
 
     Ok(())
@@ -587,9 +527,11 @@ fn on_request_resume_exploit(
     if let Some(exploit) = player_state
         .active_exploits
         .iter_mut()
-        .find(|exploit| exploit.id == evt.exploit_id)
+        .find(|exploit| {
+            lock_and_clone!(exploit, id) == evt.exploit_id
+        })
     {
-        exploit.start_execution();
+        exploit.lock().unwrap().start_execution();
     }
 
     Ok(())
@@ -759,19 +701,20 @@ fn tick_player_state(
     player_state.last_tick = Instant::now();
 
     let mut pending_effects = vec![];
-    for active_exploit in &mut player_state.active_exploits {
-        // ZJ-TODO: compared allocated speed vs server's current capacity
-        //          this should probably be refactored
-        let server_speed = active_exploit.clock_allocation_hz;
-        let ticks_since_last = (server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
+    for active_exploit in &player_state.active_exploits {
+        let (new_host_effects, new_target_effects) = {
+            let mut active_exploit = active_exploit.lock().unwrap();
+            // ZJ-TODO: compared allocated speed vs server's current capacity
+            //          this should probably be refactored
+            let server_speed = active_exploit.clock_allocation_hz;
+            let ticks_since_last = (server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
 
-        let target_server_speed = active_exploit.target.lock().unwrap().server.lock().unwrap().clock_speed_hz;
-        let target_ticks_since_last = (target_server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
+            let target_server_speed = active_exploit.target.lock().unwrap().server.lock().unwrap().clock_speed_hz;
+            let target_ticks_since_last = (target_server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
 
-        let (new_host_effects, new_target_effects) = active_exploit.tick(
-            ticks_since_last,
-            target_ticks_since_last,
-        );
+            active_exploit.tick(ticks_since_last, target_ticks_since_last)
+        };
+
         pending_effects.push((active_exploit.clone(), new_host_effects));
         pending_effects.push((active_exploit.clone(), new_target_effects));
     }
@@ -785,13 +728,23 @@ fn tick_player_state(
             );
         }
     }
+
+    for active_exploit in &player_state.active_exploits {
+        let active_exploit = active_exploit.lock().unwrap();
+        if matches!(active_exploit.status(), ActiveExploitStatus::Disconnected) {
+            if *active_exploit.auto_reconnect.lock().unwrap() {
+                commands.trigger(RequestRestartExploitEvent { exploit_id: active_exploit.id })
+            }
+        }
+    }
 }
 
 fn process_algorithm_effect_application(
     commands: &mut Commands,
     application: AlgorithmEffectApplication,
-    mut active_exploit: ActiveExploit,
+    active_exploit: Arc<Mutex<ActiveExploit>>,
 ) {
+    let mut active_exploit = active_exploit.lock().unwrap();
     match application.effect {
         AlgorithmEffect::Terminate { potency }  => {
             let value = potency.make_value();
