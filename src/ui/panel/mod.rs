@@ -1,6 +1,6 @@
 use bevy::prelude::Commands;
 use bevy_egui::egui::{Context, Ui};
-use crate::PlayerState;
+use crate::player_state::state::PlayerState;
 
 pub mod market;
 pub mod server;
