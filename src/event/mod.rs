@@ -5,3 +5,5 @@ pub mod request_restart_exploit;
 pub mod request_resume_exploit;
 pub mod modify_credits;
 pub mod request_purchase_unlock;
+pub mod exploit_event;
+pub mod exploit_started;

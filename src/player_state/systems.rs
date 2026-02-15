@@ -7,6 +7,7 @@ use crate::{lock_and_clone, TIME_BETWEEN_TICKS};
 use crate::active_exploit::{ActiveExploit, ActiveExploitStatus};
 use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectApplication, AlgorithmEffectTarget};
 use crate::algorithm::generator::AlgorithmGenerator;
+use crate::event::exploit_event::ExploitEvent;
 use crate::event::modify_credits::{ModificationSource, ModifyCreditsEvent};
 use crate::event::request_pause_exploit::RequestPauseExploitEvent;
 use crate::event::request_purchase_unlock::RequestPurchaseUnlockEvent;
@@ -200,7 +201,7 @@ pub(crate) fn tick_active_exploits(
             let target_server_speed = active_exploit.target.lock().unwrap().server.lock().unwrap().clock_speed_hz;
             let target_ticks_since_last = (target_server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
 
-            active_exploit.tick(ticks_since_last, target_ticks_since_last)
+            active_exploit.tick(&mut commands, ticks_since_last, target_ticks_since_last)
         };
 
         pending_effects.push((active_exploit.clone(), new_host_effects));
@@ -233,6 +234,12 @@ pub(crate) fn process_algorithm_effect_application(
     active_exploit: Arc<Mutex<ActiveExploit>>,
 ) {
     let mut active_exploit = active_exploit.lock().unwrap();
+    let from_player_server = {
+        let host_server_name = active_exploit.hosting_server.lock().unwrap().name.clone();
+        let application_server_name = application.host_server.lock().unwrap().name.clone();
+
+        host_server_name == application_server_name
+    };
     match application.effect {
         AlgorithmEffect::Terminate { potency }  => {
             let value = potency.make_value();
@@ -256,6 +263,14 @@ pub(crate) fn process_algorithm_effect_application(
                 credits: siphon_value,
                 source: ModificationSource::Script(application.script.lock().unwrap().id.clone()),
             });
+
+            commands.trigger(ExploitEvent {
+                active_exploit_id: active_exploit.id,
+                from_player_server,
+                algorithm_effect: AlgorithmEffect::Siphon { potency },
+                potency_roll: Some(value),
+                value_after_modification: Some(siphon_value as i32),
+            });
         }
         AlgorithmEffect::Exfil { potency } => {
             let value = potency.make_value();
@@ -273,6 +288,14 @@ pub(crate) fn process_algorithm_effect_application(
             commands.trigger(InventoryItemAdded {
                 item: InventoryItem::Algorithm(algorithm),
             });
+
+            commands.trigger(ExploitEvent {
+                active_exploit_id: active_exploit.id,
+                from_player_server,
+                algorithm_effect: AlgorithmEffect::Exfil { potency },
+                potency_roll: Some(value),
+                value_after_modification: Some(exfil_value),
+            });
         }
         AlgorithmEffect::Modify { target, stat, potency } => {
             let server = match target {
@@ -282,13 +305,25 @@ pub(crate) fn process_algorithm_effect_application(
 
             let script_id = application.script.lock().unwrap().id.clone();
 
+            let potency_roll = potency.make_value();
+
             let purged_stats = server.lock().unwrap().stats.apply_and_purge(
                 ServerStatInstance::new(
                     ServerStatSource::Script(script_id),
                     stat.to_owned(),
-                    potency.make_value()
+                    potency_roll
                 )
             );
+
+            let new_value = server.lock().unwrap().stats.value_of(stat.to_owned());
+
+            commands.trigger(ExploitEvent {
+                active_exploit_id: active_exploit.id,
+                from_player_server,
+                algorithm_effect: AlgorithmEffect::Modify { target, stat, potency },
+                potency_roll: Some(potency_roll),
+                value_after_modification: Some(new_value),
+            });
         }
         AlgorithmEffect::Purge { target, stat, potency } => {
             let (server, is_self) = match target {
@@ -319,6 +354,16 @@ pub(crate) fn process_algorithm_effect_application(
                     potency_roll
                 )
             );
+
+            let new_value = server.stats.value_of(stat.to_owned());
+
+            commands.trigger(ExploitEvent {
+                active_exploit_id: active_exploit.id,
+                from_player_server,
+                algorithm_effect: AlgorithmEffect::Purge { target, stat, potency },
+                potency_roll: Some(potency_roll),
+                value_after_modification: Some(new_value),
+            });
         }
     }
 }

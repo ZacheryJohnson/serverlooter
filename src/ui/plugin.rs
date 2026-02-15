@@ -1,10 +1,13 @@
-use crate::get_localized;
+use crate::{get_localized, lock_and_clone};
 use bevy::app::{App, Plugin, Startup};
 use bevy::camera::Camera2d;
-use bevy::prelude::{Commands, ResMut};
+use bevy::prelude::{Commands, On, ResMut};
 use bevy_egui::{egui, EguiContexts, EguiPrimaryContextPass};
 use bevy_egui::egui::Widget;
 use crate::{loc, PlayerState};
+use crate::event::exploit_event::ExploitEvent;
+use crate::event::exploit_started::ExploitStarted;
+use crate::event::request_start_exploit::RequestStartExploitEvent;
 use crate::tutorial::progression::TutorialProgression;
 use crate::ui::panel::exploit::ExploitPanel;
 use crate::ui::panel::market::MarketPanel;
@@ -21,6 +24,8 @@ impl Plugin for UiPlugin {
         app
             .add_systems(Startup, setup_camera_system)
             .add_systems(EguiPrimaryContextPass, update_ui)
+            .add_observer(on_active_exploit_event)
+            .add_observer(on_active_exploit_started)
             .insert_resource(UiState {
                 active_panel: ActivePanel::Home,
                 market_panel_state: MarketPanel {},
@@ -156,4 +161,34 @@ fn update_side_panel(
     });
 
     Ok(())
+}
+
+fn on_active_exploit_event(
+    evt: On<ExploitEvent>,
+    mut ui_state: ResMut<UiState>,
+) {
+    let Some(window) = ui_state
+        .active_exploit_windows
+        .iter_mut()
+        .find(|window| lock_and_clone!(window.active_exploit, id) == evt.active_exploit_id)
+    else {
+        return;
+    };
+
+    window.event_log.push(evt.event().to_owned());
+}
+
+fn on_active_exploit_started(
+    evt: On<ExploitStarted>,
+    mut ui_state: ResMut<UiState>
+) {
+    let Some(window) = ui_state
+        .active_exploit_windows
+        .iter_mut()
+        .find(|window| lock_and_clone!(window.active_exploit, id) == evt.exploit_id)
+    else {
+        return;
+    };
+
+    window.event_log.clear();
 }
