@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
-use rand::Rng;
+use rand::RngExt;
 use crate::script::Script;
 use crate::server::{Server, ServerStatType};
 

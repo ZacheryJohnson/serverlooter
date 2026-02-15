@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use rand::distr::{Distribution, Uniform};
 use rand::prelude::IndexedRandom;
-use rand::Rng;
+use rand::RngExt;
 use uuid::Uuid;
 use crate::algorithm::algorithm::Algorithm;
 use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectTarget, AlgorithmEffectValue};
