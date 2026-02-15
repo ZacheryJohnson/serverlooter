@@ -29,6 +29,7 @@ use crate::algorithm::id::AlgorithmId;
 use crate::algorithm::procedure::AlgorithmProcedure;
 use crate::event::modify_credits::{ModificationSource, ModifyCreditsEvent};
 use crate::event::request_pause_exploit::RequestPauseExploitEvent;
+use crate::event::request_purchase_unlock::RequestPurchaseUnlockEvent;
 use crate::event::request_restart_exploit::RequestRestartExploitEvent;
 use crate::event::request_resume_exploit::RequestResumeExploitEvent;
 use crate::event::request_start_exploit::RequestStartExploitEvent;
@@ -154,6 +155,10 @@ impl TutorialProgression {
     }
 }
 
+pub enum PlayerUnlock {
+    ExploitAutoReconnect,
+}
+
 pub struct PlayerUnlocks {
     exploit_auto_reconnect: bool,
 }
@@ -252,6 +257,7 @@ fn main() {
         .add_systems(Startup, setup_camera_system)
         .add_systems(EguiPrimaryContextPass, (update_ui, tutorial_ui_system))
         .add_systems(FixedUpdate, tick_player_state)
+        .add_systems(Update, handle_keyboard)
         .add_observer(tutorial_on_script_created)
         .add_observer(on_script_created)
         .add_observer(on_inventory_item_added)
@@ -262,6 +268,7 @@ fn main() {
         .add_observer(on_request_restart_exploit)
         .add_observer(on_request_resume_exploit)
         .add_observer(on_modify_credits)
+        .add_observer(on_request_purchase_unlock)
         .insert_resource(PlayerState {
             progression: TutorialProgression::None,
             language_identifier: "en-US".parse().unwrap(),
@@ -282,7 +289,7 @@ fn main() {
             scripts: vec![],
             last_tick: Instant::now(),
             player_unlocks: PlayerUnlocks {
-                exploit_auto_reconnect: true,
+                exploit_auto_reconnect: false,
             }
         })
         .insert_resource(UiState {
@@ -542,6 +549,29 @@ fn on_modify_credits(
     mut player_state: ResMut<PlayerState>,
 ) -> Result {
     player_state.credits = player_state.credits.saturating_add_signed(evt.credits as i128);
+
+    Ok(())
+}
+
+fn on_request_purchase_unlock(
+    evt: On<RequestPurchaseUnlockEvent>,
+    mut player_state: ResMut<PlayerState>,
+) -> Result {
+    if evt.credit_cost >= player_state.credits {
+        // ZJ-TODO: error messaging
+        return Ok(());
+    }
+
+    player_state.credits -= evt.credit_cost;
+
+    // ZJ-TODO: rather than having a separate list of bools,
+    //          it'd be nice to just have a collection of enums
+
+    match evt.unlock {
+        PlayerUnlock::ExploitAutoReconnect => {
+            player_state.player_unlocks.exploit_auto_reconnect = true;
+        }
+    }
 
     Ok(())
 }
@@ -833,4 +863,16 @@ fn process_algorithm_effect_application(
             );
         }
     }
+}
+
+fn handle_keyboard(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut player_state: ResMut<PlayerState>,
+) -> Result {
+    // Cheat: auto-unlock everything
+    if keys.just_pressed(KeyCode::Digit0) {
+        player_state.player_unlocks.exploit_auto_reconnect = true;
+    }
+
+    Ok(())
 }
