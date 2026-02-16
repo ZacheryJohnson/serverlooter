@@ -34,13 +34,14 @@ pub enum TutorialProgression {
 
     ExploitServersShown,
 
-    ExploitCorpAClicked,
+    ExploitCreditsReceived,
 
-    ExploitCorpASuccess,
-
-    ExploitCorpBClicked,
-
-    MarketAlgorithmPrompted,
+    // ZJ-TODO: finish tutorial
+    // ExploitCorpASuccess,
+    //
+    // ExploitCorpBClicked,
+    //
+    // MarketAlgorithmPrompted,
 }
 
 impl TutorialProgression {
@@ -96,11 +97,14 @@ impl TutorialProgression {
             TutorialProgression::MarketTabIntroduced => *self = TutorialProgression::MarketTabClicked,
             TutorialProgression::MarketTabClicked => *self = TutorialProgression::ExploitTabIntroduced,
             TutorialProgression::ExploitTabIntroduced => *self = TutorialProgression::ExploitServersShown,
-            TutorialProgression::ExploitServersShown => *self = TutorialProgression::ExploitCorpAClicked,
-            TutorialProgression::ExploitCorpAClicked => *self = TutorialProgression::ExploitCorpASuccess,
-            TutorialProgression::ExploitCorpASuccess => *self = TutorialProgression::ExploitCorpBClicked,
-            TutorialProgression::ExploitCorpBClicked => *self = TutorialProgression::MarketAlgorithmPrompted,
-            TutorialProgression::MarketAlgorithmPrompted => *self = TutorialProgression::Complete,
+            TutorialProgression::ExploitServersShown => *self = TutorialProgression::ExploitCreditsReceived,
+            TutorialProgression::ExploitCreditsReceived => *self = TutorialProgression::Complete,
+
+            // ZJ-TODO: finish tutorial
+            // TutorialProgression::ExploitCreditsReceived => *self = TutorialProgression::ExploitCorpASuccess,
+            // TutorialProgression::ExploitCorpASuccess => *self = TutorialProgression::ExploitCorpBClicked,
+            // TutorialProgression::ExploitCorpBClicked => *self = TutorialProgression::MarketAlgorithmPrompted,
+            // TutorialProgression::MarketAlgorithmPrompted => *self = TutorialProgression::Complete,
         }
     }
 }

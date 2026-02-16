@@ -31,100 +31,105 @@ impl Panel for ScriptsPanel {
         player_state: &PlayerState
     ) {
         egui::SidePanel::left("scripts_menu").show(ctx, |ui| {
-            ui.collapsing(loc!(player_state, "ui_algorithm_scripts_header"), |ui| {
-                let grid_items = player_state.scripts.iter().map(|script| {
-                    ScriptGridItem::from(Arc::downgrade(script))
-                }).collect::<Vec<_>>();
 
-                egui::Grid::new("script_panel_script_item_grid")
-                    .spacing([8.0, 8.0])
-                    .show(ui, |ui| {
-                        ui.ctx().style_mut(|style| {
-                            style.interaction.tooltip_delay = 0.0;
-                            style.interaction.tooltip_grace_time = 0.0;
-                            style.interaction.show_tooltips_only_when_still = false;
-                        });
+            egui::CollapsingHeader::new(loc!(player_state, "ui_algorithm_scripts_header"))
+                .default_open(true)
+                .show_unindented(ui, |ui| {
+                    let grid_items = player_state.scripts.iter().map(|script| {
+                        ScriptGridItem::from(Arc::downgrade(script))
+                    }).collect::<Vec<_>>();
 
-                        for grid_item in grid_items {
-                            let (rect, resp) = ui.allocate_exact_size(
-                                egui::vec2(35.0, 35.0),
-                                Sense::click() | Sense::hover() | Sense::drag(),
-                            );
-
-                            let resp = resp.on_hover_ui(|ui| {
-                                ui.label(grid_item.hover_text().to_owned());
+                    egui::Grid::new("script_panel_script_item_grid")
+                        .spacing([8.0, 8.0])
+                        .show(ui, |ui| {
+                            ui.ctx().style_mut(|style| {
+                                style.interaction.tooltip_delay = 0.0;
+                                style.interaction.tooltip_grace_time = 0.0;
+                                style.interaction.show_tooltips_only_when_still = false;
                             });
 
-                            let visuals = ui.style().interact(&resp);
+                            for grid_item in grid_items {
+                                let (rect, resp) = ui.allocate_exact_size(
+                                    egui::vec2(35.0, 35.0),
+                                    Sense::click() | Sense::hover() | Sense::drag(),
+                                );
 
-                            ui
-                                .painter()
-                                .rect(rect, 5.0, visuals.bg_fill, visuals.fg_stroke, StrokeKind::Outside);
+                                let resp = resp.on_hover_ui(|ui| {
+                                    ui.label(grid_item.hover_text().to_owned());
+                                });
 
-                            match grid_item.display() {
-                                InventoryGridItemDisplay::Text(display_text) => {
-                                    ui
-                                        .painter()
-                                        .text(rect.center(), Align2::CENTER_CENTER, display_text, FontId::default(), Color32::GOLD);
+                                let visuals = ui.style().interact(&resp);
+
+                                ui
+                                    .painter()
+                                    .rect(rect, 5.0, visuals.bg_fill, visuals.fg_stroke, StrokeKind::Outside);
+
+                                match grid_item.display() {
+                                    InventoryGridItemDisplay::Text(display_text) => {
+                                        ui
+                                            .painter()
+                                            .text(rect.center(), Align2::CENTER_CENTER, display_text, FontId::default(), Color32::GOLD);
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
             });
 
-            ui.collapsing(loc!(player_state, "ui_algorithm_algorithms_header"), |ui| {
-                let grid_items = player_state.inventory.algorithms.iter().map(|algo| {
-                    AlgorithmGridItem::from(Arc::downgrade(algo), player_state)
-                }).collect::<Vec<_>>();
+            egui::CollapsingHeader::new(loc!(player_state, "ui_algorithm_algorithms_header"))
+                .default_open(true)
+                .show_unindented(ui, |ui| {
+                    let grid_items = player_state.inventory.algorithms.iter().map(|algo| {
+                        AlgorithmGridItem::from(Arc::downgrade(algo), player_state)
+                    }).collect::<Vec<_>>();
 
-                egui::Grid::new("script_panel_algorithm_item_grid")
-                    .spacing([8.0, 8.0])
-                    .show(ui, |ui| {
-                        ui.ctx().style_mut(|style| {
-                            style.interaction.tooltip_delay = 0.0;
-                            style.interaction.tooltip_grace_time = 0.0;
-                            style.interaction.show_tooltips_only_when_still = false;
-                        });
-
-                        for (idx, grid_item) in grid_items.iter().enumerate() {
-                            let (rect, resp) = ui.allocate_exact_size(
-                                egui::vec2(35.0, 35.0),
-                                Sense::click() | Sense::hover() | Sense::drag(),
-                            );
-
-                            let resp = resp.on_hover_ui(|ui| {
-                                ui.label(grid_item.hover_text().to_owned());
+                    egui::Grid::new("script_panel_algorithm_item_grid")
+                        .spacing([8.0, 8.0])
+                        .show(ui, |ui| {
+                            ui.ctx().style_mut(|style| {
+                                style.interaction.tooltip_delay = 0.0;
+                                style.interaction.tooltip_grace_time = 0.0;
+                                style.interaction.show_tooltips_only_when_still = false;
                             });
 
-                            if resp.clicked() {
-                                let algorithm = grid_item.algorithm.upgrade().unwrap();
-                                self.script_builder.add_algorithm(algorithm.clone());
-                                commands.trigger(InventoryItemRemoved {
-                                    item: InventoryItem::Algorithm(algorithm),
-                                })
-                            }
+                            for (idx, grid_item) in grid_items.iter().enumerate() {
+                                let (rect, resp) = ui.allocate_exact_size(
+                                    egui::vec2(35.0, 35.0),
+                                    Sense::click() | Sense::hover() | Sense::drag(),
+                                );
 
-                            let visuals = ui.style().interact(&resp);
+                                let resp = resp.on_hover_ui(|ui| {
+                                    ui.label(grid_item.hover_text().to_owned());
+                                });
 
-                            ui
-                                .painter()
-                                .rect(rect, 5.0, visuals.bg_fill, visuals.fg_stroke, StrokeKind::Outside);
+                                if resp.clicked() {
+                                    let algorithm = grid_item.algorithm.upgrade().unwrap();
+                                    self.script_builder.add_algorithm(algorithm.clone());
+                                    commands.trigger(InventoryItemRemoved {
+                                        item: InventoryItem::Algorithm(algorithm),
+                                    })
+                                }
 
-                            match grid_item.display() {
-                                InventoryGridItemDisplay::Text(display_text) => {
-                                    ui
-                                        .painter()
-                                        .text(rect.center(), Align2::CENTER_CENTER, display_text, FontId::default(), Color32::GOLD);
+                                let visuals = ui.style().interact(&resp);
+
+                                ui
+                                    .painter()
+                                    .rect(rect, 5.0, visuals.bg_fill, visuals.fg_stroke, StrokeKind::Outside);
+
+                                match grid_item.display() {
+                                    InventoryGridItemDisplay::Text(display_text) => {
+                                        ui
+                                            .painter()
+                                            .text(rect.center(), Align2::CENTER_CENTER, display_text, FontId::default(), Color32::GOLD);
+                                    }
+                                }
+
+                                const MAX_ENTRIES_PER_ROW: usize = 5;
+                                if (idx + 1) % MAX_ENTRIES_PER_ROW == 0 {
+                                    ui.end_row();
                                 }
                             }
-
-                            const MAX_ENTRIES_PER_ROW: usize = 5;
-                            if (idx + 1) % MAX_ENTRIES_PER_ROW == 0 {
-                                ui.end_row();
-                            }
-                        }
-                    });
-            });
+                        });
+                });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {

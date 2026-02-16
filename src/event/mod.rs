@@ -7,3 +7,4 @@ pub mod modify_credits;
 pub mod request_purchase_unlock;
 pub mod exploit_event;
 pub mod exploit_started;
+pub mod tutorial_data_dump_purchased;

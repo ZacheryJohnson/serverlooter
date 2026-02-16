@@ -1,6 +1,7 @@
 use crate::get_localized;
 use bevy::prelude::{On, ResMut};
 use bevy_egui::{egui, EguiContexts};
+use crate::event::tutorial_data_dump_purchased::TutorialDataDumpPurchased;
 use crate::loc;
 use crate::player_state::state::PlayerState;
 use crate::script::ScriptCreatedEvent;
@@ -82,10 +83,6 @@ pub fn tutorial_ui_system(
         TutorialProgression::MarketTabClicked => {
             window.show(context.ctx_mut()?, |ui| {
                 ui.label(loc!(player_state, "tutorial_stage_7"));
-
-                if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
-                    player_state.progression.advance();
-                }
             });
         }
         TutorialProgression::ExploitTabIntroduced => {
@@ -98,7 +95,7 @@ pub fn tutorial_ui_system(
                 ui.label(loc!(player_state, "tutorial_stage_9"));
             });
         }
-        TutorialProgression::ExploitCorpAClicked => {
+        TutorialProgression::ExploitCreditsReceived => {
             window.show(context.ctx_mut()?, |ui| {
                 ui.label(loc!(player_state, "tutorial_stage_10"));
 
@@ -107,34 +104,45 @@ pub fn tutorial_ui_system(
                 }
             });
         }
-        TutorialProgression::ExploitCorpASuccess => {
-            window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_11"));
-
-                if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
-                    player_state.progression.advance();
-                }
-            });
-        }
-        TutorialProgression::ExploitCorpBClicked => {
-            window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_12"));
-
-                if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
-                    player_state.progression.advance();
-                }
-            });
-        }
-        TutorialProgression::MarketAlgorithmPrompted => {
-            window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_13"));
-
-                if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
-                    player_state.progression.advance();
-                }
-            });
-        }
+        // ZJ-TODO: finish tutorial
+        // TutorialProgression::ExploitCorpASuccess => {
+        //     window.show(context.ctx_mut()?, |ui| {
+        //         ui.label(loc!(player_state, "tutorial_stage_11"));
+        //
+        //         if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
+        //             player_state.progression.advance();
+        //         }
+        //     });
+        // }
+        // TutorialProgression::ExploitCorpBClicked => {
+        //     window.show(context.ctx_mut()?, |ui| {
+        //         ui.label(loc!(player_state, "tutorial_stage_12"));
+        //
+        //         if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
+        //             player_state.progression.advance();
+        //         }
+        //     });
+        // }
+        // TutorialProgression::MarketAlgorithmPrompted => {
+        //     window.show(context.ctx_mut()?, |ui| {
+        //         ui.label(loc!(player_state, "tutorial_stage_13"));
+        //
+        //         if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
+        //             player_state.progression.advance();
+        //         }
+        //     });
+        // }
     }
 
     Ok(())
+}
+
+pub fn on_tutorial_data_dump_purchased(
+    evt: On<TutorialDataDumpPurchased>,
+    mut player_state: ResMut<PlayerState>,
+) {
+    if matches!(player_state.progression, TutorialProgression::MarketTabClicked) {
+        player_state.credits -= evt.credit_cost as u128;
+        player_state.progression.advance();
+    }
 }

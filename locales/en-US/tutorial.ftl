@@ -6,24 +6,29 @@ tutorial_stage_4 =
     Let's create a script that will run on this server to start "earning" some credits.
     Click on Scripts tab in the Develop menu.
 tutorial_stage_5 =
-    This is where the tutorial will teach you to create scripts once Zach implements it.
-    For now, just click Next.
+    Click on the Algorithms section to view your available algorithms.
+    Click the Modify algorithm ("~"), then the Siphon algorithm ("$"), then click Create in the
+    Procedure section.
+    In the future, this tutorial section will explain the strategy of doing so.
 tutorial_stage_6 =
-    Nice script! Unfortunately, we have no idea what servers are out there for us to... "capitalize" on.
+    Nice script! You can see it in the Scripts section.
+    Unfortunately, we have no idea what servers are out there for us to... "capitalize" on.
     Let's see if any one is selling any on the market. Click the Market tab.
 tutorial_stage_7 =
     Look, someone's selling a cheat data dump on exposed corpo servers.
-    Let's buy that and see what we can find. For now, click Next to simulate buying the data dump.
+    Let's buy that and see what we can find.
 tutorial_stage_8 =
     Now that we know what servers are out there, let's go make some creds.
     Click the Exploit tab in the Black Hat menu.
 tutorial_stage_9 =
-    Here are the servers whose connection details we just purchased.
+    From here, we can run exploits against servers we know about.
     Each server contains different resources we can acquire and different defenses that we must overcome.
-    Our script is best at *Siphon*ing credits, so let's target the first server.
+    Our script is best at *Siphon*ing credits, so let's target the <CORP_NAME_HERE> server.
+    Click that server, select script 1, select our only server, and then click Run.
 tutorial_stage_10 =
     Ah, the sweet acrid scent of credits hitting your wallet. Nice work.
     Shall we see what CorpB has to offer?
+    For now, this ends the tutorial. You can use your remaining Exfil algorithm to get more algorithms!
 tutorial_stage_11 =
     Well, that went less than ideal. Seems like their defenses are better suited for our script.
     Let's head to the Market to see if anyone is selling any algorithms that would improve our odds.

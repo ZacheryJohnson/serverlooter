@@ -60,10 +60,6 @@ pub(crate) fn on_request_start_exploit(
     ui_state.active_exploit_windows.push(ActiveExploitWindow::new(active_exploit.clone()));
     player_state.active_exploits.push(active_exploit);
 
-    if matches!(player_state.progression, TutorialProgression::ExploitServersShown) {
-        player_state.progression.advance();
-    }
-
     Ok(())
 }
 
@@ -139,6 +135,10 @@ pub(crate) fn on_modify_credits(
     mut player_state: ResMut<PlayerState>,
 ) -> bevy::prelude::Result {
     player_state.credits = player_state.credits.saturating_add_signed(evt.credits as i128);
+
+    if matches!(player_state.progression, TutorialProgression::ExploitServersShown) {
+        player_state.progression.advance();
+    }
 
     Ok(())
 }
