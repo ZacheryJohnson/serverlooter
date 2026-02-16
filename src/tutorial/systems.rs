@@ -26,6 +26,7 @@ pub fn tutorial_ui_system(
             context.ctx_mut()?.content_rect().width() / 2.0,
             context.ctx_mut()?.content_rect().height() / 2.0,
         ))
+        .pivot(egui::Align2::CENTER_CENTER)
         .resizable(true)
         .constrain(true);
 

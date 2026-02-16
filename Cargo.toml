@@ -13,5 +13,10 @@ unic-langid = "=0.9.6" # for use with fluent localization
 uuid = { version = "=1.20.0", features = ["v4"] }
 web-time = "=1.1.0"
 
+[profile.wasm]
+inherits = "release"
+lto = true
+codegen-units = 1
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "=0.4.1", default-features = false, features = ["wasm_js"] }
