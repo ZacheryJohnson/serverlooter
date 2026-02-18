@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 bevy = { version = "=0.18.0", default-features = false, features = ["2d"] }
 bevy_egui = { version = "=0.39.1", default-features = false, features = ["render", "default_fonts", "bevy_ui", "picking"] }
+egui_extras = { version = "=0.33.3", features = ["all_loaders"] }
 fluent-templates = "=0.13.2"
 rand = "=0.10.0"
 rand_distr = "=0.6.0"

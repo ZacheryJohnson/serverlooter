@@ -13,3 +13,7 @@ The game is in active development, and has lots of quirks. Issues + pull request
 You must build the wasm prior to serving the files. See [Building](#building).
 
 `npx http-server wasm_out -o --p 1330`
+
+# Attributions
+
+- audio effects courtesy of [KenneyNL's All-in-One bundle](https://kenney.itch.io/kenney-game-assets)

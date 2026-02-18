@@ -1,5 +1,6 @@
 use bevy_egui::egui::text::LayoutJob;
 use bevy_egui::egui::{Color32, TextFormat};
+use crate::executor::Executor;
 use crate::script::Script;
 use crate::ui::hover_text::OnHoverText;
 
@@ -8,11 +9,21 @@ impl OnHoverText for Script {
 
     fn on_hover_text(&self, _: &Self::State) -> LayoutJob {
         let mut hover_text_layout_job = LayoutJob::default();
+
+        let mut ic_text_format = TextFormat::default();
+        ic_text_format.color = Color32::DARK_GRAY;
+
         hover_text_layout_job.append(
             // ZJ-TODO: localize
-            "Procedure\n",
+            "Procedure ",
             0.0,
             TextFormat::default(),
+        );
+
+        hover_text_layout_job.append(
+            &format!("(IC {})\n", self.executor().total_instructions()),
+            0.0,
+            ic_text_format.clone(),
         );
 
         let mut effect_text_format = TextFormat::default();
@@ -23,13 +34,18 @@ impl OnHoverText for Script {
             let mut algorithm_id = 1;
             for algorithm in procedure.algorithms() {
                 let algorithm = algorithm.lock().unwrap();
-                let prefix = format!("{thread_id}.{algorithm_id}:\n");
                 hover_text_layout_job.append(
-                    // ZJ-TODO: localize
-                    &prefix,
+                    &format!("{thread_id}.{algorithm_id}: "),
                     0.0,
                     TextFormat::default(),
                 );
+
+                hover_text_layout_job.append(
+                    &format!("(IC {})\n", algorithm.instruction_count),
+                    0.0,
+                    ic_text_format.clone(),
+                );
+
                 for (_, effects) in &algorithm.instruction_effects {
                     for effect in effects {
                         hover_text_layout_job.append(

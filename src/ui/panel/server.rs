@@ -1,7 +1,8 @@
 use std::sync::{Arc, Mutex};
-use bevy::prelude::Commands;
+use bevy::asset::AssetServer;
+use bevy::prelude::{Commands, Res};
 use bevy_egui::egui::{Context, Ui};
-use crate::{get_localized, loc, lock_and_clone, ActiveExploit, PlayerState};
+use crate::{get_localized, loc, lock_and_clone, PlayerState};
 use crate::macros::clock_speed_to_loc_args;
 use crate::ui::panel::Panel;
 
@@ -15,7 +16,8 @@ impl Panel for ServersPanel {
         _: &mut Commands,
         _: &Context,
         ui: &mut Ui,
-        player_state: &PlayerState
+        player_state: &PlayerState,
+        _: &AssetServer,
     ) {
         for server_arc in &player_state.servers {
             let server = server_arc.lock().unwrap().clone();

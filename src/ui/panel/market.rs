@@ -1,4 +1,5 @@
-use bevy::prelude::Commands;
+use bevy::asset::AssetServer;
+use bevy::prelude::{Commands, Res};
 use bevy_egui::egui;
 use bevy_egui::egui::{Context, Ui};
 use crate::event::request_purchase_unlock::RequestPurchaseUnlockEvent;
@@ -17,7 +18,8 @@ impl Panel for MarketPanel {
         commands: &mut Commands,
         _: &Context,
         ui: &mut Ui,
-        player_state: &PlayerState
+        player_state: &PlayerState,
+        _: &AssetServer,
     ) {
         if matches!(player_state.progression, TutorialProgression::MarketTabClicked) {
             ui.heading("Data Dumps");

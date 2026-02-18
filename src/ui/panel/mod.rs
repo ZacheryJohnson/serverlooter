@@ -1,4 +1,5 @@
-use bevy::prelude::Commands;
+use bevy::asset::AssetServer;
+use bevy::prelude::{Commands, Res};
 use bevy_egui::egui::{Context, Ui};
 use crate::player_state::state::PlayerState;
 
@@ -14,6 +15,7 @@ pub trait Panel {
         commands: &mut Commands,
         ctx: &Context,
         ui: &mut Ui,
-        player_state: &PlayerState
+        player_state: &PlayerState,
+        asset_server: &AssetServer
     );
 }

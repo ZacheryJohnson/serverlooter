@@ -1,3 +1,4 @@
+use bevy::asset::AssetServer;
 use bevy::prelude::Commands;
 use bevy_egui::egui::{Context, Ui};
 use crate::PlayerState;
@@ -10,6 +11,7 @@ pub trait Window {
         &mut self,
         commands: &mut Commands,
         ctx: &Context,
-        player_state: &PlayerState
+        player_state: &PlayerState,
+        asset_server: &AssetServer,
     );
 }

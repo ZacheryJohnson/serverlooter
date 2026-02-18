@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use bevy::prelude::Commands;
+use bevy::asset::AssetServer;
+use bevy::audio::{AudioPlayer, PlaybackSettings};
+use bevy::prelude::{Commands, Res};
 use bevy_egui::egui;
 use bevy_egui::egui::{Align2, Color32, Context, FontId, RichText, Sense, StrokeKind, Ui};
 use crate::{get_localized, loc, PlayerState};
@@ -28,7 +30,8 @@ impl Panel for ScriptsPanel {
         commands: &mut Commands,
         ctx: &Context,
         _: &mut Ui,
-        player_state: &PlayerState
+        player_state: &PlayerState,
+        asset_server: &AssetServer,
     ) {
         egui::SidePanel::left("scripts_menu").show(ctx, |ui| {
 
@@ -106,7 +109,12 @@ impl Panel for ScriptsPanel {
                                     self.script_builder.add_algorithm(algorithm.clone());
                                     commands.trigger(InventoryItemRemoved {
                                         item: InventoryItem::Algorithm(algorithm),
-                                    })
+                                    });
+
+                                    commands.spawn((
+                                        AudioPlayer::new(asset_server.load("audio/click.ogg")),
+                                        PlaybackSettings::ONCE
+                                    ));
                                 }
 
                                 let visuals = ui.style().interact(&resp);
@@ -136,8 +144,18 @@ impl Panel for ScriptsPanel {
             let script = self.script_builder.current_script();
 
             let mut algorithm_to_remove: Option<Arc<Mutex<Algorithm>>> = None;
-            for procedure in &script.procedures {
+
+            for (idx, procedure) in script.procedures.iter().enumerate() {
                 ui.heading(loc!(player_state, "ui_algorithm_procedure_header"));
+
+                ui.group(|ui| {
+                    ui.label("Start");
+                });
+
+                let down_arrow_img = egui::Image::new(egui::include_image!("../../../assets/sprites/down-arrow.png"))
+                    .max_size([32f32, 32f32].into());
+                ui.add(down_arrow_img.clone());
+
                 let mut algorithms = procedure.algorithms();
                 while let Some(algorithm) = algorithms.next() {
                     let algorithm_inner = algorithm.lock().unwrap();
@@ -157,10 +175,30 @@ impl Panel for ScriptsPanel {
                         }
                     });
 
+                    if group.response.interact(Sense::hover()).hovered() {
+                        ui.painter().rect_stroke(
+                            group.response.rect,
+                            ui.style().visuals.widgets.noninteractive.corner_radius,
+                            egui::Stroke::new(2.0, Color32::RED),
+                            StrokeKind::Outside
+                        );
+                    }
+
                     if group.response.interact(Sense::click()).clicked() {
                         algorithm_to_remove = Some(algorithm.clone());
+
+                        commands.spawn((
+                            AudioPlayer::new(asset_server.load("audio/click.ogg")),
+                            PlaybackSettings::ONCE
+                        ));
                     }
+
+                    ui.add(down_arrow_img.clone());
                 };
+
+                ui.group(|ui| {
+                    ui.label("End");
+                });
             }
 
             if let Some(algorithm) = algorithm_to_remove {
@@ -179,6 +217,11 @@ impl Panel for ScriptsPanel {
                 commands.trigger(ScriptCreatedEvent {
                     script
                 });
+
+                commands.spawn((
+                    AudioPlayer::new(asset_server.load("audio/click.ogg")),
+                    PlaybackSettings::ONCE
+                ));
             }
         });
     }

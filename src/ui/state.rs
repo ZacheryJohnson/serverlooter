@@ -15,6 +15,8 @@ pub(crate) enum ActivePanel {
 
 #[derive(Resource)]
 pub(crate) struct UiState {
+    pub image_loaders_initialized: bool,
+
     pub active_panel: ActivePanel,
     pub market_panel_state: MarketPanel,
     pub server_panel_state: ServersPanel,
