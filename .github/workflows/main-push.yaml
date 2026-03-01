@@ -11,12 +11,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-      - name: Install prequisites
+      - name: Install prerequisites
         run: sudo apt-get install -yqq pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: Cache build
         uses: actions/cache@v4.2.3
         with:
-          path: target/
+          path: |
+            target/
+            wasm_out/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
@@ -24,18 +26,45 @@ jobs:
       - name: Build
         run: cargo build --profile release
 
+  build_wasm:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install prerequisites
+        run: sudo apt-get install -yqq pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Cache build
+        uses: actions/cache@v4.2.3
+        with:
+          path: |
+            target/
+            wasm_out/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-
+      - name: Build
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.108 --locked
+          cargo install wasm-opt
+          ./scripts/build-wasm.sh
+
   test:
     runs-on: ubuntu-latest
     needs: build
 
     steps:
       - uses: actions/checkout@v4
-      - name: Install build prereqs
+      - name: Install prerequisites
         run: sudo apt-get install -yqq pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: Load cached build
         uses: actions/cache@v4.2.3
         with:
-          path: target/
+          path: |
+            target/
+            wasm_out/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
@@ -45,16 +74,18 @@ jobs:
 
   upload:
     runs-on: ubuntu-latest
-    needs: test
+    needs: [build_wasm, test]
 
     steps:
       - uses: actions/checkout@v4
-      - name: Install build prereqs
+      - name: Install prerequisites
         run: sudo apt-get install -yqq pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: Load cached build
         uses: actions/cache@v4.2.3
         with:
-          path: target/
+          path: |
+            target/
+            wasm_out/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
@@ -63,13 +94,10 @@ jobs:
         env:
           ITCH_BUTLER_CREDENTIALS: ${{ secrets.ITCH_BUTLER_CREDENTIALS }}
         run: |
-          rustup target add wasm32-unknown-unknown
-          cargo install wasm-bindgen-cli --version 0.2.108 --locked
-          cargo install wasm-opt
-          ./scripts/build-wasm.sh
           wget -O butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           unzip butler.zip
           export PATH="$PATH:$(pwd)/butler"
+          echo "$PATH"
           echo "$ITCH_BUTLER_CREDENTIALS" > butler_creds
           butler login -i butler_creds
           ./scripts/itch-upload.sh
