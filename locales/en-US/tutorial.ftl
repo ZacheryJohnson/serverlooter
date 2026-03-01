@@ -1,4 +1,4 @@
-tutorial_ask_start = Last login: 782 days. Restart tutorial?
+tutorial_ask_start = Welcome, <DELETED_USER>. Restart tutorial?
 tutorial_stage_1 = Welcome back. This is the Server Management Hub.
 tutorial_stage_2 = On the left, you'll see the servers you own. Open the drop down and select the only server you own.
 tutorial_stage_3 = Here you'll see your server's stats. Far from a industry-standard machine, but it'll do.

@@ -60,6 +60,7 @@ pub trait ServerStats {
     fn stat_values(&self) -> BTreeMap<ServerStatType, i32>;
 
     /// Returns each individual stat instance on this server.
+    #[allow(dead_code)]
     fn stat_instances(&self) -> BTreeMap<ServerStatType, Vec<ServerStatInstance>>;
 }
 

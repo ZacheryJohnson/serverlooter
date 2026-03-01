@@ -21,7 +21,7 @@ use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::diagnostic::LogDiagnosticsPlugin;
 use bevy_egui::EguiPlugin;
 use uuid::Uuid;
-use crate::active_exploit::{ActiveExploit, ExploitTarget};
+use crate::active_exploit::ExploitTarget;
 use crate::algorithm::algorithm::Algorithm;
 use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectTarget, AlgorithmEffectValue};
 use crate::algorithm::id::AlgorithmId;

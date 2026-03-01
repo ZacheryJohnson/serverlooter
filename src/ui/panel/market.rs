@@ -1,5 +1,5 @@
 use bevy::asset::AssetServer;
-use bevy::prelude::{Commands, Res};
+use bevy::prelude::Commands;
 use bevy_egui::egui;
 use bevy_egui::egui::{Context, Ui};
 use crate::event::request_purchase_unlock::RequestPurchaseUnlockEvent;

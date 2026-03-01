@@ -1,0 +1,28 @@
+name: Main CI
+on:
+  push:
+#    ZJ-TODO: only on main once working
+#    branches:
+#      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build
+        run: cargo build --profile release
+      - name: Test
+        run: cargo test --profile release
+      - name: Itch.io Upload
+        env:
+          ITCH_BUTLER_CREDENTIALS: ${{ secrets.ITCH_BUTLER_CREDENTIALS }}
+        run: |
+          cargo install wasm-bindgen-cli
+          ./scripts/build-wasm.sh
+          wget -O butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip butler.zip
+          export PATH="$PATH:$(pwd)/butler"
+          echo "$ITCH_BUTLER_CREDENTIALS" > ~/.config/itch/butler_creds
+          ./scripts/itch-upload.sh
