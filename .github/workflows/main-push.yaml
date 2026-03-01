@@ -90,16 +90,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
             ${{ runner.os }}-cargo-
-      - name: Itch.io Upload
+      - name: Install Itch.io Butler
         env:
           ITCH_BUTLER_CREDENTIALS: ${{ secrets.ITCH_BUTLER_CREDENTIALS }}
         run: |
           wget -O butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           unzip butler.zip
-          export GITHUB_PATH="$GITHUB_PATH:$(pwd)/butler"
-          echo "$GITHUB_PATH"
+          echo "$GITHUB_WORKSPACE/butler" >> $GITHUB_PATH
           echo "$ITCH_BUTLER_CREDENTIALS" > butler_creds
-          echo "$(pwd)"
-          echo "$(ls -la)"
+      - name: Upload to Itch.io
+        run: |
           butler login -i butler_creds
           ./scripts/itch-upload.sh
