@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - uses: actions/checkout@v5
@@ -27,7 +27,7 @@ jobs:
         run: cargo build --profile release
 
   build_wasm:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build
 
     steps:
@@ -52,7 +52,7 @@ jobs:
           ./scripts/build-wasm.sh
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build
 
     steps:
@@ -73,7 +73,7 @@ jobs:
         run: cargo test --profile release
 
   upload:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [build_wasm, test]
 
     steps:
@@ -99,5 +99,6 @@ jobs:
           export PATH="$PATH:$(pwd)/butler"
           echo "$PATH"
           echo "$ITCH_BUTLER_CREDENTIALS" > butler_creds
+          echo "$(ls -la)"
           butler login -i butler_creds
           ./scripts/itch-upload.sh
