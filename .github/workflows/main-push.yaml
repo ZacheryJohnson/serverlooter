@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install prequisites
-        run: sudo apt-get install -yqq pkg-config libx11-dev libasound2-dev libudev-dev
+        run: sudo apt-get install -yqq pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: Cache build
         uses: actions/cache@v4.2.3
         with:
@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install build prereqs
-        run: sudo apt-get install -yqq pkg-config libx11-dev libasound2-dev libudev-dev protobuf-compiler
+        run: sudo apt-get install -yqq pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: Load cached build
         uses: actions/cache@v4.2.3
         with:
@@ -50,7 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install build prereqs
-        run: sudo apt-get install -yqq pkg-config libx11-dev libasound2-dev libudev-dev protobuf-compiler
+        run: sudo apt-get install -yqq pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: Load cached build
         uses: actions/cache@v4.2.3
         with:
