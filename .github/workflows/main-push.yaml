@@ -64,11 +64,12 @@ jobs:
           ITCH_BUTLER_CREDENTIALS: ${{ secrets.ITCH_BUTLER_CREDENTIALS }}
         run: |
           rustup target add wasm32-unknown-unknown
-          cargo install wasm-bindgen-cli --version 0.2.108
+          cargo install wasm-bindgen-cli --version 0.2.108 --locked
+          cargo install wasm-opt
           ./scripts/build-wasm.sh
           wget -O butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           unzip butler.zip
           export PATH="$PATH:$(pwd)/butler"
-          echo "$ITCH_BUTLER_CREDENTIALS" > ~/.config/itch/butler_creds
-          ls ~
+          echo "$ITCH_BUTLER_CREDENTIALS" > butler_creds
+          butler login -i butler_creds
           ./scripts/itch-upload.sh
