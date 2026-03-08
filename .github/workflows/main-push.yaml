@@ -100,7 +100,8 @@ jobs:
           echo "$ITCH_BUTLER_CREDENTIALS" > butler_creds
       - name: Upload to Itch.io
         run: |
-          echo "$GITHUB_PATH"
+          echo "$(cat $GITHUB_PATH)"
+          echo "$GITHUB_WORKSPACE"
           echo "$(ls $GITHUB_WORKSPACE)"
           butler login -i butler_creds
           ./scripts/itch-upload.sh
