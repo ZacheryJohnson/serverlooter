@@ -11,18 +11,20 @@ GIT_HASH=$(git rev-parse --short HEAD)
 OUT_ZIP=$OUT_DIR/$OUT_NAME-itch-$GIT_HASH.zip
 BUTLER_EXE="${2:-butler}"
 
-ls $WORKING_DIR/assets
-ls $OUT_DIR/assets
 cp -r $WORKING_DIR/assets $OUT_DIR/assets
-ls $OUT_DIR/assets
 
-cd $OUT_DIR
+echo "Verifying OUT_DIR before zip:"
+ls -l $OUT_DIR
+cd $OUT_DIR || exit 1
+echo "Verifying files before zip:"
+ls -l serverlooter-${GIT_HASH}.js serverlooter_opt-${GIT_HASH}.wasm index.html assets/
 
 zip -MM -r $OUT_ZIP \
   serverlooter-${GIT_HASH}.js \
   serverlooter_opt-${GIT_HASH}.wasm \
   index.html \
-  assets
+  assets/
+
 if [ $? -ne 0 ]; then
   echo "failed to zip all requested files; aborting."
   exit 1
