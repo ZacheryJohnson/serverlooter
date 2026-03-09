@@ -96,12 +96,11 @@ jobs:
         run: |
           wget -O butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           unzip butler.zip
-          echo "$GITHUB_WORKSPACE/butler" >> $GITHUB_PATH
           echo "$ITCH_BUTLER_CREDENTIALS" > butler_creds
       - name: Upload to Itch.io
         run: |
-          echo "$(cat $GITHUB_PATH)"
+          echo "$PATH"
           echo "$GITHUB_WORKSPACE"
           echo "$(ls $GITHUB_WORKSPACE)"
-          butler login -i butler_creds
-          ./scripts/itch-upload.sh
+          ./butler login -i butler_creds
+          ./scripts/itch-upload.sh . ./butler
