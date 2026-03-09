@@ -170,7 +170,7 @@ fn update_side_panel(
 
             if collapsing.header_response.clicked() {
                 commands.spawn((
-                    AudioPlayer::new(asset_server.load("audio/click2.ogg")),
+                    AudioPlayer::new(asset_server.load("audio/click.ogg")),
                     PlaybackSettings::ONCE
                 ));
             }

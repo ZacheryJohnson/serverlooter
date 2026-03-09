@@ -91,7 +91,7 @@ pub struct AlgorithmEffectApplication {
 pub enum AlgorithmEffect {
     /// `Terminate` damages the connection health between the two servers.
     /// This is primarily used by opposing servers to disconnect the player's exploits.
-    Terminate { potency: AlgorithmEffectValue, } ,
+    Terminate { potency: AlgorithmEffectValue, },
 
     /// `Siphon` steals credits from the target machine.
     /// The higher the `potency`, the more credits will be stolen from the target.

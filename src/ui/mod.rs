@@ -6,3 +6,4 @@ pub mod window;
 pub(crate) mod state;
 
 mod hover_text;
+pub mod mixed_text;
