@@ -1,9 +1,8 @@
 name: Main CI
 on:
   push:
-#    ZJ-TODO: only on main once working
-#    branches:
-#      - main
+    branches:
+      - main
 
 jobs:
   build:
