@@ -11,7 +11,10 @@ GIT_HASH=$(git rev-parse --short HEAD)
 OUT_ZIP=$OUT_DIR/$OUT_NAME-itch-$GIT_HASH.zip
 BUTLER_EXE="${2:-butler}"
 
+ls $WORKING_DIR/assets
+ls $OUT_DIR/assets
 cp -r $WORKING_DIR/assets $OUT_DIR/assets
+ls $OUT_DIR/assets
 
 cd $OUT_DIR
 

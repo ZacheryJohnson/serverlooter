@@ -92,7 +92,5 @@ jobs:
         run: |
           wget -O butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           unzip butler.zip
-          echo "$(ls -la)"
-          echo "$(ls wasm_out)"
           ./butler login -i butler_creds
           ./scripts/itch-upload.sh . ./butler
