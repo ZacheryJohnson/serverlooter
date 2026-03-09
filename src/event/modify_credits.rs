@@ -2,11 +2,11 @@ use bevy::prelude::Event;
 use crate::script::ScriptId;
 
 pub enum ModificationSource {
-    Script(ScriptId),
+    Script(#[allow(dead_code)] ScriptId),
 }
 
 #[derive(Event)]
 pub struct ModifyCreditsEvent {
     pub credits: i64,
-    pub source: ModificationSource,
+    #[allow(dead_code)] pub source: ModificationSource,
 }

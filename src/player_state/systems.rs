@@ -306,7 +306,7 @@ pub(crate) fn process_algorithm_effect_application(
 
             let potency_roll = potency.make_value();
 
-            let purged_stats = server.lock().unwrap().stats.apply_and_purge(
+            let _purged_stats = server.lock().unwrap().stats.apply_and_purge(
                 ServerStatInstance::new(
                     ServerStatSource::Script(script_id),
                     stat.to_owned(),
@@ -346,7 +346,7 @@ pub(crate) fn process_algorithm_effect_application(
                 }
             };
 
-            let purged_stats = server.stats.apply_and_purge(
+            let _purged_stats = server.stats.apply_and_purge(
                 ServerStatInstance::new(
                     ServerStatSource::Script(script_id),
                     stat.to_owned(),

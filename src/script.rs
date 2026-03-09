@@ -258,10 +258,6 @@ impl ScriptExecutor {
             is_paused: false,
         }
     }
-
-    pub fn is_paused(&self) -> bool {
-        self.is_paused
-    }
 }
 
 impl Executor for ScriptExecutor {

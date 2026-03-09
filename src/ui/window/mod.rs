@@ -1,6 +1,6 @@
 use bevy::asset::AssetServer;
 use bevy::prelude::Commands;
-use bevy_egui::egui::{Context, Ui};
+use bevy_egui::egui::Context;
 use crate::PlayerState;
 
 pub mod active_exploit;

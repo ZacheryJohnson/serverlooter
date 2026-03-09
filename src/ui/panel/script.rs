@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use bevy::asset::AssetServer;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
-use bevy::prelude::{Commands, Res};
+use bevy::prelude::Commands;
 use bevy_egui::egui;
 use bevy_egui::egui::{Align2, Color32, Context, FontId, RichText, Sense, StrokeKind, Ui};
 use crate::{get_localized, loc, PlayerState};
@@ -145,7 +145,7 @@ impl Panel for ScriptsPanel {
 
             let mut algorithm_to_remove: Option<Arc<Mutex<Algorithm>>> = None;
 
-            for (idx, procedure) in script.procedures.iter().enumerate() {
+            for (_, procedure) in script.procedures.iter().enumerate() {
                 ui.heading(loc!(player_state, "ui_algorithm_procedure_header"));
 
                 ui.group(|ui| {

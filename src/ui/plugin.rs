@@ -1,7 +1,7 @@
 use crate::{get_localized, lock_and_clone};
 use bevy::app::{App, Plugin, Startup};
 use bevy::asset::AssetServer;
-use bevy::audio::{AudioPlayer, GlobalVolume, PlaybackSettings};
+use bevy::audio::{AudioPlayer, AudioSource, GlobalVolume, PlaybackSettings};
 use bevy::camera::Camera2d;
 use bevy::prelude::{Commands, On, Res, ResMut};
 use bevy_egui::{egui, EguiContexts, EguiPrimaryContextPass};
@@ -9,7 +9,6 @@ use bevy_egui::egui::Widget;
 use crate::{loc, PlayerState};
 use crate::event::exploit_event::ExploitEvent;
 use crate::event::exploit_started::ExploitStarted;
-use crate::event::request_start_exploit::RequestStartExploitEvent;
 use crate::tutorial::progression::TutorialProgression;
 use crate::ui::panel::exploit::ExploitPanel;
 use crate::ui::panel::market::MarketPanel;
@@ -44,8 +43,13 @@ fn setup_camera_system(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
-fn setup_audio(mut volume: ResMut<GlobalVolume>) {
+fn setup_audio(
+    mut volume: ResMut<GlobalVolume>,
+    asset_server: Res<AssetServer>,
+) {
     volume.volume = volume.volume.decrease_by_percentage(75f32);
+
+    let _ = asset_server.load::<AudioSource>("audio/click.ogg");
 }
 
 fn update_ui(
@@ -166,7 +170,7 @@ fn update_side_panel(
 
             if collapsing.header_response.clicked() {
                 commands.spawn((
-                    AudioPlayer::new(asset_server.load("audio/click.ogg")),
+                    AudioPlayer::new(asset_server.load("audio/click2.ogg")),
                     PlaybackSettings::ONCE
                 ));
             }
