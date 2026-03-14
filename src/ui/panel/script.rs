@@ -1,11 +1,10 @@
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use bevy::asset::AssetServer;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::prelude::Commands;
 use bevy_egui::egui;
 use bevy_egui::egui::{Align2, Color32, Context, FontId, RichText, Sense, StrokeKind, Ui};
-use crate::{get_localized, loc, PlayerState};
+use crate::{loc, PlayerState};
 use crate::algorithm::algorithm::Algorithm;
 use crate::inventory::{InventoryItem, InventoryItemAdded, InventoryItemRemoved};
 use crate::script::{ScriptBuilder, ScriptCreatedEvent, ScriptId};
@@ -39,7 +38,7 @@ impl Panel for ScriptsPanel {
                 .default_open(true)
                 .show_unindented(ui, |ui| {
                     let grid_items = player_state.scripts.iter().map(|script| {
-                        ScriptGridItem::from(Arc::downgrade(script))
+                        ScriptGridItem::from(Arc::downgrade(script), player_state)
                     }).collect::<Vec<_>>();
 
                     egui::Grid::new("script_panel_script_item_grid")
@@ -160,17 +159,14 @@ impl Panel for ScriptsPanel {
                 while let Some(algorithm) = algorithms.next() {
                     let algorithm_inner = algorithm.lock().unwrap();
                     let group = ui.group(|ui| {
-                        ui.label(loc!(
-                            player_state,
-                            "ui_algorithm_instruction_count",
-                            HashMap::from([("instruction_count".to_string(), algorithm_inner.instruction_count.into())])
-                        ));
+                        ui.label(player_state.localize(&algorithm_inner.instruction_count));
 
                         ui.label(loc!(player_state, "ui_algorithm_effects_header"));
                         for (_, effects) in &algorithm_inner.instruction_effects {
                             for effect in effects {
-                                // ZJ-TODO: localize
-                                ui.label(RichText::new(format!("{effect}")).color(Color32::GOLD));
+                                ui
+                                    .label(RichText::new(player_state.localize(effect))
+                                    .color(Color32::GOLD));
                             }
                         }
                     });

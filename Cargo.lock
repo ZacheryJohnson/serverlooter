@@ -4870,7 +4870,6 @@ dependencies = [
  "getrandom 0.4.1",
  "rand 0.10.0",
  "rand_distr 0.6.0",
- "unic-langid",
  "uuid",
  "web-time",
 ]

@@ -1,4 +1,3 @@
-use crate::get_localized;
 use bevy::prelude::{On, ResMut};
 use bevy_egui::{egui, EguiContexts};
 use crate::event::tutorial_data_dump_purchased::TutorialDataDumpPurchased;

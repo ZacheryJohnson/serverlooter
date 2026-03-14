@@ -6,6 +6,7 @@ use crate::make_exploit_target;
 use crate::player_state::state::{PlayerState, PlayerUnlocks};
 use crate::player_state::systems::*;
 use crate::tutorial::progression::TutorialProgression;
+use crate::ui::clock_speed::ClockSpeed;
 
 pub struct PlayerStatePlugin;
 
@@ -30,7 +31,7 @@ impl Plugin for PlayerStatePlugin {
                     Arc::new(Mutex::new(Server {
                         name: "fe80:0070::".to_string(),
                         threads: 2,
-                        clock_speed_hz: 2_000_000,
+                        clock_speed: ClockSpeed::new(2_000_000),
                         stats: ServerStatInstances::new(),
                     }))
                 ],

@@ -1,13 +1,14 @@
 use bevy_egui::egui::text::LayoutJob;
 use bevy_egui::egui::{Color32, TextFormat};
 use crate::executor::Executor;
+use crate::player_state::state::PlayerState;
 use crate::script::Script;
 use crate::ui::hover_text::OnHoverText;
 
 impl OnHoverText for Script {
-    type State = ();
+    type State = PlayerState;
 
-    fn on_hover_text(&self, _: &Self::State) -> LayoutJob {
+    fn on_hover_text(&self, state: &Self::State) -> LayoutJob {
         let mut hover_text_layout_job = LayoutJob::default();
 
         let mut ic_text_format = TextFormat::default();
@@ -41,7 +42,7 @@ impl OnHoverText for Script {
                 );
 
                 hover_text_layout_job.append(
-                    &format!("(IC {})\n", algorithm.instruction_count),
+                    &format!("(IC {})\n", *algorithm.instruction_count),
                     0.0,
                     ic_text_format.clone(),
                 );
@@ -49,11 +50,12 @@ impl OnHoverText for Script {
                 for (_, effects) in &algorithm.instruction_effects {
                     for effect in effects {
                         hover_text_layout_job.append(
-                            // ZJ-TODO: localize
-                            &format!("{effect}\n"),
+                            &state.localize(effect),
                             10.0,
                             effect_text_format.clone(),
                         );
+
+                        hover_text_layout_job.append("\n", 10.0, TextFormat::default());
                     }
                 }
 

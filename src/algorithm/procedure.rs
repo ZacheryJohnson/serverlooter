@@ -71,7 +71,7 @@ impl AlgorithmProcedure {
         self
             .algorithms
             .iter()
-            .map(|algo| algo.lock().unwrap().instruction_count)
+            .map(|algo| *algo.lock().unwrap().instruction_count)
             .sum::<u64>()
     }
 }

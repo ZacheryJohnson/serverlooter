@@ -10,7 +10,6 @@ egui_extras = { version = "=0.33.3", features = ["all_loaders"] }
 fluent-templates = "=0.13.2"
 rand = "=0.10.0"
 rand_distr = "=0.6.0"
-unic-langid = "=0.9.6" # for use with fluent localization
 uuid = { version = "=1.20.0", features = ["v4"] }
 web-time = "=1.1.0"
 

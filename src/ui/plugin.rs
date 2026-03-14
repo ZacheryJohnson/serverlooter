@@ -1,4 +1,4 @@
-use crate::{get_localized, lock_and_clone};
+use crate::lock_and_clone;
 use bevy::app::{App, Plugin, Startup};
 use bevy::asset::AssetServer;
 use bevy::audio::{AudioPlayer, AudioSource, GlobalVolume, PlaybackSettings};
