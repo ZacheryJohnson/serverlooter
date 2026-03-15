@@ -4,7 +4,7 @@ use crate::event::request_start_exploit::RequestStartExploitEvent;
 use crate::player_state::state::{PlayerState, PlayerUnlock};
 use crate::{lock_and_clone, TIME_BETWEEN_TICKS};
 use crate::active_exploit::{ActiveExploit, ActiveExploitStatus};
-use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectApplication, AlgorithmEffectTarget};
+use crate::algorithm::effect::{AlgorithmEffect, application::AlgorithmEffectApplication, target::AlgorithmEffectTarget};
 use crate::algorithm::generator::AlgorithmGenerator;
 use crate::event::exploit_event::ExploitEvent;
 use crate::event::modify_credits::{ModificationSource, ModifyCreditsEvent};
@@ -41,11 +41,11 @@ pub(crate) fn on_request_start_exploit(
         .filter(|exploit| lock_and_clone!(exploit, hosting_server, name) == target_server_name)
         .count() as u64 + 1;
 
-    let new_clock_speed_per_process = lock_and_clone!(server, clock_speed_hz) / new_total_processes;
+    let new_clock_speed_per_process = *lock_and_clone!(server, clock_speed) / new_total_processes;
 
     for existing_exploit in &mut player_state.active_exploits {
         let mut existing_exploit = existing_exploit.lock().unwrap();
-        existing_exploit.clock_allocation_hz = new_clock_speed_per_process;
+        existing_exploit.clock_allocation = new_clock_speed_per_process.into();
     }
 
     let auto_reconnect = player_state.player_unlocks.exploit_auto_reconnect;
@@ -53,7 +53,7 @@ pub(crate) fn on_request_start_exploit(
         target,
         script,
         server,
-        new_clock_speed_per_process,
+        new_clock_speed_per_process.into(),
         auto_reconnect,
     )));
 
@@ -194,10 +194,10 @@ pub(crate) fn tick_active_exploits(
             let mut active_exploit = active_exploit.lock().unwrap();
             // ZJ-TODO: compared allocated speed vs server's current capacity
             //          this should probably be refactored
-            let server_speed = active_exploit.clock_allocation_hz;
+            let server_speed = *active_exploit.clock_allocation;
             let ticks_since_last = (server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
 
-            let target_server_speed = active_exploit.target.lock().unwrap().server.lock().unwrap().clock_speed_hz;
+            let target_server_speed = *active_exploit.target.lock().unwrap().server.lock().unwrap().clock_speed;
             let target_ticks_since_last = (target_server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
 
             active_exploit.tick(&mut commands, ticks_since_last, target_ticks_since_last)

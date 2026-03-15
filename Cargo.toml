@@ -3,6 +3,12 @@ name = "serverlooter"
 version = "0.1.0"
 edition = "2024"
 
+[build-dependencies]
+convert_case = "0.11.0"
+fluent-syntax = "0.12.0"
+strum = { version = "=0.27.2", features = ["derive"] }
+walkdir = "2.5.0"
+
 [dependencies]
 bevy = { version = "=0.18.0", default-features = false, features = ["2d"] }
 bevy_egui = { version = "=0.39.1", default-features = false, features = ["render", "default_fonts", "bevy_ui", "picking"] }
@@ -10,7 +16,7 @@ egui_extras = { version = "=0.33.3", features = ["all_loaders"] }
 fluent-templates = "=0.13.2"
 rand = "=0.10.0"
 rand_distr = "=0.6.0"
-unic-langid = "=0.9.6" # for use with fluent localization
+strum = { version = "=0.27.2", features = ["derive"] }
 uuid = { version = "=1.20.0", features = ["v4"] }
 web-time = "=1.1.0"
 

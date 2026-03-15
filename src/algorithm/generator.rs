@@ -4,9 +4,10 @@ use rand::prelude::IndexedRandom;
 use rand::RngExt;
 use uuid::Uuid;
 use crate::algorithm::algorithm::Algorithm;
-use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectTarget, AlgorithmEffectValue};
+use crate::algorithm::effect::{AlgorithmEffect, target::AlgorithmEffectTarget, value::AlgorithmEffectValue};
 use crate::algorithm::id::AlgorithmId;
 use crate::server::ServerStatType;
+use crate::ui::instruction_count::InstructionCount;
 
 pub struct AlgorithmGenerator;
 
@@ -79,9 +80,11 @@ impl AlgorithmGenerator {
             added_effects.push(new_effect);
         }
 
-        let instruction_count = rng.sample(Uniform::new(1_000_000, 3_000_000).unwrap()) * num_effects as u64;
+        let instruction_count = InstructionCount::new(
+            rng.sample(Uniform::new(1_000_000, 3_000_000).unwrap()) * num_effects as u64
+        );
 
-        let instruction_effects = vec![(instruction_count, added_effects)];
+        let instruction_effects = vec![(instruction_count.clone(), added_effects)];
 
         Arc::new(Mutex::new(Algorithm {
             id: AlgorithmId::Id(Uuid::new_v4()),

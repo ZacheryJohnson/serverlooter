@@ -1,8 +1,8 @@
 use bevy::asset::AssetServer;
 use bevy::prelude::Commands;
 use bevy_egui::egui::{Context, Ui};
-use crate::{get_localized, loc, lock_and_clone, PlayerState};
-use crate::macros::clock_speed_to_loc_args;
+use crate::{loc, lock_and_clone, PlayerState};
+use crate::l10n::message_id::MessageId;
 use crate::ui::panel::Panel;
 
 pub struct ServersPanel {
@@ -24,16 +24,12 @@ impl Panel for ServersPanel {
                 group_ui.vertical_centered(|vert_ui| {
                     vert_ui.heading(&server.name);
 
-                    vert_ui.label(loc!(
-                        player_state,
-                        "ui_server_clock_speed",
-                        clock_speed_to_loc_args(server.clock_speed_hz)
-                    ));
+                    vert_ui.label(player_state.localize(&server.clock_speed));
 
                     vert_ui.label(loc!(
                         player_state,
-                        "ui_server_thread_count",
-                        [("thread_count".to_string(), server.threads.into())].into()
+                        MessageId::UiServerThreadCount,
+                        [("thread_count", server.threads.into())].into()
                     ));
 
                     let active_exploits_on_this_server: Vec<_> = player_state
@@ -54,11 +50,7 @@ impl Panel for ServersPanel {
                         vert_ui.label(format!(
                             "{} at {}",
                             target_name,
-                            loc!(
-                                player_state,
-                                "ui_server_clock_speed",
-                                clock_speed_to_loc_args(lock_and_clone!(exploit, clock_allocation_hz))
-                            )
+                            player_state.localize(&lock_and_clone!(exploit, clock_allocation))
                         ));
                     }
                 });

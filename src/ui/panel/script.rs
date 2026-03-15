@@ -1,13 +1,13 @@
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use bevy::asset::AssetServer;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::prelude::Commands;
 use bevy_egui::egui;
 use bevy_egui::egui::{Align2, Color32, Context, FontId, RichText, Sense, StrokeKind, Ui};
-use crate::{get_localized, loc, PlayerState};
+use crate::{loc, PlayerState};
 use crate::algorithm::algorithm::Algorithm;
 use crate::inventory::{InventoryItem, InventoryItemAdded, InventoryItemRemoved};
+use crate::l10n::message_id::MessageId;
 use crate::script::{ScriptBuilder, ScriptCreatedEvent, ScriptId};
 use crate::ui::inventory::grid_item::{AlgorithmGridItem, InventoryGridItem, InventoryGridItemDisplay, ScriptGridItem};
 use crate::ui::panel::Panel;
@@ -34,12 +34,11 @@ impl Panel for ScriptsPanel {
         asset_server: &AssetServer,
     ) {
         egui::SidePanel::left("scripts_menu").show(ctx, |ui| {
-
-            egui::CollapsingHeader::new(loc!(player_state, "ui_algorithm_scripts_header"))
+            egui::CollapsingHeader::new(loc!(player_state, MessageId::UiAlgorithmScriptsHeader))
                 .default_open(true)
                 .show_unindented(ui, |ui| {
                     let grid_items = player_state.scripts.iter().map(|script| {
-                        ScriptGridItem::from(Arc::downgrade(script))
+                        ScriptGridItem::from(Arc::downgrade(script), player_state)
                     }).collect::<Vec<_>>();
 
                     egui::Grid::new("script_panel_script_item_grid")
@@ -78,7 +77,7 @@ impl Panel for ScriptsPanel {
                         });
             });
 
-            egui::CollapsingHeader::new(loc!(player_state, "ui_algorithm_algorithms_header"))
+            egui::CollapsingHeader::new(loc!(player_state, MessageId::UiAlgorithmAlgorithmsHeader))
                 .default_open(true)
                 .show_unindented(ui, |ui| {
                     let grid_items = player_state.inventory.algorithms.iter().map(|algo| {
@@ -146,7 +145,7 @@ impl Panel for ScriptsPanel {
             let mut algorithm_to_remove: Option<Arc<Mutex<Algorithm>>> = None;
 
             for (_, procedure) in script.procedures.iter().enumerate() {
-                ui.heading(loc!(player_state, "ui_algorithm_procedure_header"));
+                ui.heading(loc!(player_state, MessageId::UiAlgorithmProcedureHeader));
 
                 ui.group(|ui| {
                     ui.label("Start");
@@ -160,17 +159,14 @@ impl Panel for ScriptsPanel {
                 while let Some(algorithm) = algorithms.next() {
                     let algorithm_inner = algorithm.lock().unwrap();
                     let group = ui.group(|ui| {
-                        ui.label(loc!(
-                            player_state,
-                            "ui_algorithm_instruction_count",
-                            HashMap::from([("instruction_count".to_string(), algorithm_inner.instruction_count.into())])
-                        ));
+                        ui.label(player_state.localize(&algorithm_inner.instruction_count));
 
-                        ui.label(loc!(player_state, "ui_algorithm_effects_header"));
+                        ui.label(loc!(player_state, MessageId::UiAlgorithmEffectsHeader));
                         for (_, effects) in &algorithm_inner.instruction_effects {
                             for effect in effects {
-                                // ZJ-TODO: localize
-                                ui.label(RichText::new(format!("{effect}")).color(Color32::GOLD));
+                                ui
+                                    .label(RichText::new(player_state.localize(effect))
+                                    .color(Color32::GOLD));
                             }
                         }
                     });
@@ -208,7 +204,7 @@ impl Panel for ScriptsPanel {
                 });
             }
 
-            if !self.script_builder.is_empty() && ui.button(loc!(player_state, "ui_confirmation_create")).clicked() {
+            if !self.script_builder.is_empty() && ui.button(loc!(player_state, MessageId::UiConfirmationCreate)).clicked() {
                 let mut script_builder = ScriptBuilder::new();
                 std::mem::swap(&mut self.script_builder, &mut script_builder);
                 let mut script = script_builder.finish();

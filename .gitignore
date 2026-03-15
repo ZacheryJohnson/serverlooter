@@ -1,5 +1,7 @@
 /target
 
+src/l10n/message_id.rs
+
 .node_modules/
 .idea/
 wasm_out/

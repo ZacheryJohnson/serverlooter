@@ -1,6 +1,7 @@
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use crate::script::ScriptId;
+use crate::ui::clock_speed::ClockSpeed;
 
 #[derive(Clone)]
 pub struct Server {
@@ -9,8 +10,7 @@ pub struct Server {
     /// Number of concurrent processes available for all running scripts
     pub threads: u32,
 
-    /// Defined as an u64 to avoid float imprecision
-    pub clock_speed_hz: u64,
+    pub clock_speed: ClockSpeed,
 
     pub stats: ServerStatInstances,
 }
@@ -20,7 +20,7 @@ impl Server {
         Server {
             name: "".to_string(),
             threads: 0,
-            clock_speed_hz: 0,
+            clock_speed: ClockSpeed::new(0),
             stats: ServerStatInstances::new(),
         }
     }

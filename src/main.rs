@@ -2,6 +2,7 @@ mod ui;
 mod script;
 mod server;
 mod inventory;
+mod l10n;
 
 mod macros;
 mod event;
@@ -13,7 +14,6 @@ mod tutorial;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use crate::macros::get_localized;
 use bevy::prelude::*;
 use bevy::DefaultPlugins;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
@@ -23,7 +23,7 @@ use bevy_egui::EguiPlugin;
 use uuid::Uuid;
 use crate::active_exploit::ExploitTarget;
 use crate::algorithm::algorithm::Algorithm;
-use crate::algorithm::effect::{AlgorithmEffect, AlgorithmEffectTarget, AlgorithmEffectValue};
+use crate::algorithm::effect::{AlgorithmEffect, target::AlgorithmEffectTarget, value::AlgorithmEffectValue};
 use crate::algorithm::id::AlgorithmId;
 use crate::algorithm::procedure::AlgorithmProcedure;
 use crate::inventory::plugin::InventoryPlugin;
@@ -32,6 +32,7 @@ use crate::player_state::state::{PlayerState, PlayerUnlock};
 use crate::script::{Script, ScriptId};
 use crate::server::{Server, ServerStatInstance, ServerStatInstances, ServerStatSource, ServerStatType};
 use crate::tutorial::plugin::TutorialPlugin;
+use crate::ui::clock_speed::ClockSpeed;
 use crate::ui::plugin::UiPlugin;
 
 const TICKS_PER_SECOND: u8 = 20;
@@ -46,7 +47,7 @@ fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
         Arc::new(Mutex::new(Server {
             name: "<CORP NAME HERE>".to_string(),
             threads: 1,
-            clock_speed_hz: 1_600_000,
+            clock_speed: ClockSpeed::new(1_600_000),
             stats: ServerStatInstances::from(&[
                 ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::SiphonResist, 3),
                 ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::ExfilResist, 8),
@@ -58,21 +59,21 @@ fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
                 AlgorithmProcedure::from(&[
                     Arc::new(Mutex::new(Algorithm {
                         id: AlgorithmId::Id(Uuid::new_v4()),
-                        instruction_count: 1_000_000,
+                        instruction_count: 1_000_000.into(),
                         instruction_effects: vec![
-                            (250_000, vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
-                            (500_000, vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
-                            (750_000, vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
-                            (1_000_000, vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
+                            (250_000.into(), vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
+                            (500_000.into(), vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
+                            (750_000.into(), vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
+                            (1_000_000.into(), vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
                         ],
                     }))
                 ]),
                 AlgorithmProcedure::from(&[
                     Arc::new(Mutex::new(Algorithm {
                         id: AlgorithmId::Id(Uuid::new_v4()),
-                        instruction_count: 1_000_000,
+                        instruction_count: 1_000_000.into(),
                         instruction_effects: vec![
-                            (1_000_000, vec![
+                            (1_000_000.into(), vec![
                                 // ZJ-TODO: would be nice to have a PurgeAll
                                 AlgorithmEffect::Purge {
                                     potency: AlgorithmEffectValue::Static(1),

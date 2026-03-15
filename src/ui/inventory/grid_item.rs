@@ -85,9 +85,10 @@ pub struct ScriptGridItem {
 impl ScriptGridItem {
     pub fn from(
         script: Weak<Mutex<Script>>,
+        player_state: &PlayerState,
     ) -> ScriptGridItem {
         let hover_text = {
-            let hover_text = script.upgrade().unwrap().lock().unwrap().on_hover_text(&()).clone();
+            let hover_text = script.upgrade().unwrap().lock().unwrap().on_hover_text(player_state).clone();
             hover_text
         };
 

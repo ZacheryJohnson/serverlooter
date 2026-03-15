@@ -19,6 +19,7 @@ ui_server_thread_count = Threads: {$thread_count}
 ui_server_clock_speed = { $unit ->
     [ghz] {NUMBER($clock_speed, minimumFractionDigits: 4)} GHz
     [mhz] {NUMBER($clock_speed, minimumFractionDigits: 4)} MHz
+    [khz] {NUMBER($clock_speed, minimumFractionDigits: 4)} KHz
     *[other] {NUMBER($clock_speed, minimumFractionDigits: 4)} Hz
 }
 

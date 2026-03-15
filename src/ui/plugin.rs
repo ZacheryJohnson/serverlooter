@@ -1,4 +1,4 @@
-use crate::{get_localized, lock_and_clone};
+use crate::lock_and_clone;
 use bevy::app::{App, Plugin, Startup};
 use bevy::asset::AssetServer;
 use bevy::audio::{AudioPlayer, AudioSource, GlobalVolume, PlaybackSettings};
@@ -9,6 +9,7 @@ use bevy_egui::egui::Widget;
 use crate::{loc, PlayerState};
 use crate::event::exploit_event::ExploitEvent;
 use crate::event::exploit_started::ExploitStarted;
+use crate::l10n::message_id::MessageId;
 use crate::tutorial::progression::TutorialProgression;
 use crate::ui::panel::exploit::ExploitPanel;
 use crate::ui::panel::market::MarketPanel;
@@ -136,7 +137,7 @@ fn update_side_panel(
 
     side_panel.show(ctx, |ui| {
         if player_state.progression.show_market_tab() {
-            if ui.selectable_label(false, loc!(player_state, "ui_menu_sidebar_market_tab")).clicked() {
+            if ui.selectable_label(false, loc!(player_state, MessageId::UiMenuSidebarMarketTab)).clicked() {
                 if matches!(player_state.progression, TutorialProgression::MarketTabIntroduced) {
                     player_state.progression = TutorialProgression::MarketTabClicked;
                 }
@@ -150,7 +151,7 @@ fn update_side_panel(
             }
         }
         if player_state.progression.show_servers_tab() {
-            let collapsing = ui.collapsing(loc!(player_state, "ui_menu_sidebar_servers_section"), |ui| {
+            let collapsing = ui.collapsing(loc!(player_state, MessageId::UiMenuSidebarServersSection), |ui| {
                 for server_arc in &player_state.servers {
                     let server = server_arc.lock().unwrap();
                     if ui.selectable_label(false, &server.name).clicked() {
@@ -176,8 +177,8 @@ fn update_side_panel(
             }
         }
         if player_state.progression.show_develop_tab() {
-            let collapsing = ui.collapsing(loc!(player_state, "ui_menu_sidebar_develop_section"), |ui| {
-                if ui.selectable_label(false, loc!(player_state, "ui_menu_sidebar_scripts_tab")).clicked() {
+            let collapsing = ui.collapsing(loc!(player_state, MessageId::UiMenuSidebarDevelopSection), |ui| {
+                if ui.selectable_label(false, loc!(player_state, MessageId::UiMenuSidebarScriptsTab)).clicked() {
                     if matches!(player_state.progression, TutorialProgression::DevelopScriptsIntroduced) {
                         player_state.progression = TutorialProgression::ScriptClicked;
                     }
@@ -199,8 +200,8 @@ fn update_side_panel(
             }
         }
         if player_state.progression.show_exploit_tab() {
-            let collapsing = ui.collapsing(loc!(player_state, "ui_menu_sidebar_black_hat_section"), |ui| {
-                if ui.selectable_label(false, loc!(player_state, "ui_menu_sidebar_exploit_tab")).clicked() {
+            let collapsing = ui.collapsing(loc!(player_state, MessageId::UiMenuSidebarBlackHatSection), |ui| {
+                if ui.selectable_label(false, loc!(player_state, MessageId::UiMenuSidebarExploitTab)).clicked() {
                     if matches!(player_state.progression, TutorialProgression::ExploitTabIntroduced) {
                         player_state.progression = TutorialProgression::ExploitServersShown;
                     }
@@ -223,7 +224,7 @@ fn update_side_panel(
         }
 
         if player_state.progression.is_complete() {
-            ui.label(loc!(player_state, "ui_menu_sidebar_glossary_tab"));
+            ui.label(loc!(player_state, MessageId::UiMenuSidebarGlossaryTab));
         }
     });
 

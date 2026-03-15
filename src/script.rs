@@ -131,18 +131,18 @@ impl Executor for AlgorithmExecutor {
             .unwrap()
             .instruction_effects
             .iter()
-            .filter(|(instruction_count, _)| *instruction_count > self.instruction_pointer && self.instruction_pointer + tick_count >= *instruction_count)
+            .filter(|(instruction_count, _)| **instruction_count > self.instruction_pointer && self.instruction_pointer + tick_count >= **instruction_count)
             .map(|(_, effects)| effects.to_owned())
             .flatten()
             .collect::<Vec<AlgorithmEffect>>();
 
-        self.instruction_pointer = (self.instruction_pointer + tick_count).min(self.algorithm.lock().unwrap().instruction_count);
+        self.instruction_pointer = (self.instruction_pointer + tick_count).min(*self.algorithm.lock().unwrap().instruction_count);
 
         next_effects
     }
 
     fn is_complete(&self) -> bool {
-        self.instruction_pointer >= self.algorithm.lock().unwrap().instruction_count
+        self.instruction_pointer >= *self.algorithm.lock().unwrap().instruction_count
     }
 
     fn progress(&self) -> u64 {
@@ -150,7 +150,7 @@ impl Executor for AlgorithmExecutor {
     }
 
     fn total_instructions(&self) -> u64 {
-        self.algorithm.lock().unwrap().instruction_count
+        *self.algorithm.lock().unwrap().instruction_count
     }
 }
 
@@ -228,7 +228,7 @@ impl Executor for AlgorithmProcedureExecutor {
         let completed_instruction_count: u64 = self
             .finished_algorithms
             .iter()
-            .map(|algorithm| algorithm.lock().unwrap().instruction_count)
+            .map(|algorithm| *algorithm.lock().unwrap().instruction_count)
             .sum();
 
         let current_instruction_pointer = self.algorithm_executor.instruction_pointer;
@@ -325,7 +325,7 @@ mod tests {
     fn algorithm_executor_can_complete() {
         let algorithm = Arc::new(Mutex::new(Algorithm {
             id: make_id(),
-            instruction_count: 3,
+            instruction_count: 3.into(),
             instruction_effects: Default::default(),
         }));
 
@@ -347,13 +347,13 @@ mod tests {
     fn algorithm_procedure_executor_can_complete() {
         let algorithm1 = Arc::new(Mutex::new(Algorithm {
             id: make_id(),
-            instruction_count: 3,
+            instruction_count: 3.into(),
             instruction_effects: Default::default(),
         }));
 
         let algorithm2 = Arc::new(Mutex::new(Algorithm {
             id: make_id(),
-            instruction_count: 3,
+            instruction_count: 3.into(),
             instruction_effects: Default::default(),
         }));
 
@@ -374,9 +374,9 @@ mod tests {
     fn script_executor_can_complete() {
         let algorithm1 = Arc::new(Mutex::new(Algorithm {
             id: make_id(),
-            instruction_count: 5,
+            instruction_count: 5.into(),
             instruction_effects: vec![
-                (1, vec![
+                (1.into(), vec![
                     AlgorithmEffect::Siphon { potency: 1.into(), }
                 ]),
             ],
@@ -384,9 +384,9 @@ mod tests {
 
         let algorithm2 = Arc::new(Mutex::new(Algorithm {
             id: make_id(),
-            instruction_count: 10,
+            instruction_count: 10.into(),
             instruction_effects: vec![
-                (5, vec![
+                (5.into(), vec![
                     AlgorithmEffect::Siphon { potency: 2.into(), }
                 ]),
             ],
