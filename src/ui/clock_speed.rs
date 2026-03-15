@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use fluent_templates::fluent_bundle::FluentValue;
 use crate::l10n::Localizable;
+use crate::l10n::message_id::MessageId;
 
 #[derive(Clone)]
 pub struct ClockSpeed {
@@ -35,8 +36,8 @@ impl ClockSpeed {
 }
 
 impl Localizable for ClockSpeed {
-    fn loc_key(&self) -> &'static str {
-        "ui_server_clock_speed"
+    fn loc_key(&self) -> MessageId {
+        MessageId::UiServerClockSpeed
     }
 
     fn loc_args(&self) -> HashMap<&'static str, FluentValue<'_>> {

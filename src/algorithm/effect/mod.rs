@@ -8,6 +8,7 @@ use fluent_templates::fluent_bundle::FluentValue;
 use crate::algorithm::effect::target::AlgorithmEffectTarget;
 use crate::algorithm::effect::value::AlgorithmEffectValue;
 use crate::l10n::Localizable;
+use crate::l10n::message_id::MessageId;
 use crate::server::ServerStatType;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -37,13 +38,13 @@ pub enum AlgorithmEffect {
 }
 
 impl Localizable for AlgorithmEffect {
-    fn loc_key(&self) -> &'static str {
+    fn loc_key(&self) -> MessageId {
         match self {
-            AlgorithmEffect::Terminate { .. } => "algorithm_effect_terminate_instance",
-            AlgorithmEffect::Siphon { .. } => "algorithm_effect_siphon_instance",
-            AlgorithmEffect::Exfil { .. } => "algorithm_effect_exfil_instance",
-            AlgorithmEffect::Modify { .. } => "algorithm_effect_modify_instance",
-            AlgorithmEffect::Purge { .. } => "algorithm_effect_purge_instance",
+            AlgorithmEffect::Terminate { .. } => MessageId::AlgorithmEffectTerminateInstance,
+            AlgorithmEffect::Siphon { .. } => MessageId::AlgorithmEffectSiphonInstance,
+            AlgorithmEffect::Exfil { .. } => MessageId::AlgorithmEffectExfilInstance,
+            AlgorithmEffect::Modify { .. } => MessageId::AlgorithmEffectModifyInstance,
+            AlgorithmEffect::Purge { .. } => MessageId::AlgorithmEffectPurgeInstance,
         }
     }
 

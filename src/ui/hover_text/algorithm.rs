@@ -2,6 +2,7 @@ use bevy_egui::egui::text::LayoutJob;
 use bevy_egui::egui::{Color32, TextFormat};
 use crate::{loc, PlayerState};
 use crate::algorithm::algorithm::Algorithm;
+use crate::l10n::message_id::MessageId;
 use crate::ui::hover_text::OnHoverText;
 
 impl OnHoverText for Algorithm {
@@ -16,7 +17,7 @@ impl OnHoverText for Algorithm {
         );
         hover_text_layout_job.append("\n", 0.0, TextFormat::default());
         hover_text_layout_job.append(
-            &loc!(state, "ui_algorithm_effects_header"),
+            &loc!(state, MessageId::UiAlgorithmEffectsHeader),
             10.0,
             TextFormat::default(),
         );

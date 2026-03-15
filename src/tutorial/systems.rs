@@ -1,6 +1,7 @@
 use bevy::prelude::{On, ResMut};
 use bevy_egui::{egui, EguiContexts};
 use crate::event::tutorial_data_dump_purchased::TutorialDataDumpPurchased;
+use crate::l10n::message_id::MessageId;
 use crate::loc;
 use crate::player_state::state::PlayerState;
 use crate::script::ScriptCreatedEvent;
@@ -21,7 +22,7 @@ pub fn tutorial_ui_system(
     mut context: EguiContexts,
     mut player_state: ResMut<PlayerState>,
 ) -> bevy::prelude::Result {
-    let window = egui::Window::new(loc!(player_state, "ui_window_tutorial_title"))
+    let window = egui::Window::new(loc!(player_state, MessageId::UiWindowTutorialTitle))
         .default_pos(egui::pos2(
             context.ctx_mut()?.content_rect().width() / 2.0,
             context.ctx_mut()?.content_rect().height() / 2.0,
@@ -34,71 +35,71 @@ pub fn tutorial_ui_system(
         TutorialProgression::Skipped | TutorialProgression::Complete => { /* no-op */ },
         TutorialProgression::None => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_ask_start"));
-                if ui.button(loc!(player_state, "ui_confirmation_yes")).clicked() {
+                ui.label(loc!(player_state, MessageId::TutorialAskStart));
+                if ui.button(loc!(player_state, MessageId::UiConfirmationYes)).clicked() {
                     player_state.progression = TutorialProgression::Start;
                 }
-                if ui.button(loc!(player_state, "ui_confirmation_no")).clicked() {
+                if ui.button(loc!(player_state, MessageId::UiConfirmationNo)).clicked() {
                     player_state.progression = TutorialProgression::Skipped;
                 }
             });
         }
         TutorialProgression::Start => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_1"));
-                if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
+                ui.label(loc!(player_state, MessageId::TutorialStage1));
+                if ui.button(loc!(player_state, MessageId::UiConfirmationNext)).clicked() {
                     player_state.progression.advance();
                 }
             });
         }
         TutorialProgression::ServersTabIntroduced => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_2"));
+                ui.label(loc!(player_state, MessageId::TutorialStage2));
             });
         }
         TutorialProgression::ServerClicked => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_3"));
-                if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
+                ui.label(loc!(player_state, MessageId::TutorialStage3));
+                if ui.button(loc!(player_state, MessageId::UiConfirmationNext)).clicked() {
                     player_state.progression.advance();
                 }
             });
         }
         TutorialProgression::DevelopScriptsIntroduced => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_4"));
+                ui.label(loc!(player_state, MessageId::TutorialStage4));
             });
         }
         TutorialProgression::ScriptClicked => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_5"));
+                ui.label(loc!(player_state, MessageId::TutorialStage5));
             });
         }
         TutorialProgression::MarketTabIntroduced => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_6"));
+                ui.label(loc!(player_state, MessageId::TutorialStage6));
             });
         }
         TutorialProgression::MarketTabClicked => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_7"));
+                ui.label(loc!(player_state, MessageId::TutorialStage7));
             });
         }
         TutorialProgression::ExploitTabIntroduced => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_8"));
+                ui.label(loc!(player_state, MessageId::TutorialStage8));
             });
         }
         TutorialProgression::ExploitServersShown => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_9"));
+                ui.label(loc!(player_state, MessageId::TutorialStage9));
             });
         }
         TutorialProgression::ExploitCreditsReceived => {
             window.show(context.ctx_mut()?, |ui| {
-                ui.label(loc!(player_state, "tutorial_stage_10"));
+                ui.label(loc!(player_state, MessageId::TutorialStage10));
 
-                if ui.button(loc!(player_state, "ui_confirmation_next")).clicked() {
+                if ui.button(loc!(player_state, MessageId::UiConfirmationNext)).clicked() {
                     player_state.progression.advance();
                 }
             });

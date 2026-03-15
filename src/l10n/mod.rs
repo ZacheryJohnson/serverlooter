@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use fluent_templates::fluent_bundle::FluentValue;
 use fluent_templates::{static_loader, LanguageIdentifier};
+use crate::l10n::message_id::MessageId;
+
+pub mod message_id;
 
 static_loader! {
     static LOCALES = {
@@ -15,35 +18,29 @@ static_loader! {
 }
 
 pub trait Localizable {
-    fn loc_key(&self) -> &'static str;
+    fn loc_key(&self) -> MessageId;
     fn loc_args(&self) -> HashMap<&'static str, FluentValue<'_>> {
         HashMap::new()
     }
 }
 
-impl Localizable for &'static str {
-    fn loc_key(&self) -> &'static str {
-        self
-    }
-}
-
 pub fn get_localized(
     language_identifier: &LanguageIdentifier,
-    lookup_key: &str,
+    lookup_key: MessageId,
 ) -> String {
     LOCALES
-        .lookup_single_language::<&'static str>(language_identifier, lookup_key, None)
-        .expect(&format!("failed to load key {lookup_key}"))
+        .lookup_single_language::<&'static str>(language_identifier, lookup_key.get(), None)
+        .expect(&format!("failed to load key {}", lookup_key.get()))
 }
 
 pub fn get_localized_with_args(
     language_identifier: &LanguageIdentifier,
-    lookup_key: &str,
+    lookup_key: MessageId,
     args: HashMap<&'static str, FluentValue>
 ) -> String {
     LOCALES
-        .lookup_single_language(language_identifier, lookup_key, Some(&args))
-        .expect(&format!("failed to load key {lookup_key}"))
+        .lookup_single_language(language_identifier, lookup_key.get(), Some(&args))
+        .expect(&format!("failed to load key {}", lookup_key.get()))
 }
 
 #[macro_export]

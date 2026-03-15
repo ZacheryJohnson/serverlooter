@@ -2,6 +2,7 @@ use bevy::asset::AssetServer;
 use bevy::prelude::Commands;
 use bevy_egui::egui::{Context, Ui};
 use crate::{loc, lock_and_clone, PlayerState};
+use crate::l10n::message_id::MessageId;
 use crate::ui::panel::Panel;
 
 pub struct ServersPanel {
@@ -27,7 +28,7 @@ impl Panel for ServersPanel {
 
                     vert_ui.label(loc!(
                         player_state,
-                        "ui_server_thread_count",
+                        MessageId::UiServerThreadCount,
                         [("thread_count", server.threads.into())].into()
                     ));
 

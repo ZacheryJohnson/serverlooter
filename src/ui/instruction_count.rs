@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use fluent_templates::fluent_bundle::FluentValue;
 use crate::l10n::Localizable;
+use crate::l10n::message_id::MessageId;
 
 #[derive(Clone)]
 pub struct InstructionCount {
@@ -35,8 +36,8 @@ impl InstructionCount {
 }
 
 impl Localizable for InstructionCount {
-    fn loc_key(&self) -> &'static str {
-        "ui_algorithm_instruction_count"
+    fn loc_key(&self) -> MessageId {
+        MessageId::UiAlgorithmInstructionCount
     }
 
     fn loc_args(&self) -> HashMap<&'static str, FluentValue<'_>> {
