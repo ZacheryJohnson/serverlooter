@@ -3,8 +3,9 @@ use bevy::app::{App, FixedUpdate, Plugin};
 use crate::inventory::Inventory;
 use crate::server::{Server, ServerStatInstances};
 use crate::make_exploit_target;
-use crate::player_state::state::{PlayerState, PlayerUnlocks};
+use crate::player_state::state::PlayerState;
 use crate::player_state::systems::*;
+use crate::player_state::unlocks::PlayerUnlocks;
 use crate::tutorial::progression::TutorialProgression;
 use crate::ui::clock_speed::ClockSpeed;
 
@@ -33,6 +34,7 @@ impl Plugin for PlayerStatePlugin {
                         threads: 2,
                         clock_speed: ClockSpeed::new(2_000_000),
                         stats: ServerStatInstances::new(),
+                        running_scripts: vec![],
                     }))
                 ],
                 known_targets: vec![
@@ -41,9 +43,7 @@ impl Plugin for PlayerStatePlugin {
                 active_exploits: vec![],
                 scripts: vec![],
                 last_tick: web_time::Instant::now(),
-                player_unlocks: PlayerUnlocks {
-                    exploit_auto_reconnect: false,
-                }
+                player_unlocks: PlayerUnlocks::empty()
             });
     }
 }

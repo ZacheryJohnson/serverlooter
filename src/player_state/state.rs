@@ -5,17 +5,10 @@ use crate::active_exploit::{ActiveExploit, ExploitTarget};
 use crate::inventory::Inventory;
 use crate::l10n::Localizable;
 use crate::loc;
+use crate::player_state::unlocks::PlayerUnlocks;
 use crate::script::Script;
 use crate::server::Server;
 use crate::tutorial::progression::TutorialProgression;
-
-pub enum PlayerUnlock {
-    ExploitAutoReconnect,
-}
-
-pub struct PlayerUnlocks {
-    pub exploit_auto_reconnect: bool,
-}
 
 #[derive(Resource)]
 pub struct PlayerState {

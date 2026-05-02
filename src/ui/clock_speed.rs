@@ -41,7 +41,7 @@ impl Localizable for ClockSpeed {
     }
 
     fn loc_args(&self) -> HashMap<&'static str, FluentValue<'_>> {
-        let server_speed_digits = self.clock_speed_hz.ilog10();
+        let server_speed_digits = if self.clock_speed_hz == 0 { 0 } else { self.clock_speed_hz.ilog10()};
         let (unit, clock_speed) = match server_speed_digits {
             0..3 => ("hz", self.clock_speed_hz as f32),
             3..6 => ("khz", self.clock_speed_hz as f32 / 1_000.0),

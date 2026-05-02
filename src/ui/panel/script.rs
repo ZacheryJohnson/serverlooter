@@ -6,9 +6,13 @@ use bevy_egui::egui;
 use bevy_egui::egui::{Align2, Color32, Context, FontId, RichText, Sense, StrokeKind, Ui};
 use crate::{loc, PlayerState};
 use crate::algorithm::algorithm::Algorithm;
-use crate::inventory::{InventoryItem, InventoryItemAdded, InventoryItemRemoved};
+use crate::inventory::event::item_added::InventoryItemAdded;
+use crate::inventory::event::item_removed::InventoryItemRemoved;
+use crate::inventory::InventoryItem;
 use crate::l10n::message_id::MessageId;
-use crate::script::{ScriptBuilder, ScriptCreatedEvent, ScriptId};
+use crate::script::builder::ScriptBuilder;
+use crate::script::event::script_created::ScriptCreatedEvent;
+use crate::script::id::ScriptId;
 use crate::ui::inventory::grid_item::{AlgorithmGridItem, InventoryGridItem, InventoryGridItemDisplay, ScriptGridItem};
 use crate::ui::panel::Panel;
 

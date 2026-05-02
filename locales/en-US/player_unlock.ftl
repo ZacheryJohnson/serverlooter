@@ -1,0 +1,2 @@
+player_unlock_exploit_autoreconnect_title = Exploit Auto-reconnect
+player_unlock_exploit_autoreconnect_description = Automatically reconnect to a target server during exploits once disconnected.

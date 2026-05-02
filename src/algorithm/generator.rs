@@ -23,17 +23,17 @@ impl AlgorithmGenerator {
         let ph_val = 0;
         let effect_options = [
             AlgorithmEffect::Siphon { potency: AlgorithmEffectValue::Static(ph_val) },
-            AlgorithmEffect::Siphon { potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
+            AlgorithmEffect::Siphon { potency: AlgorithmEffectValue::Range(ph_val..ph_val) },
             AlgorithmEffect::Exfil { potency: AlgorithmEffectValue::Static(ph_val) },
-            AlgorithmEffect::Exfil { potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
+            AlgorithmEffect::Exfil { potency: AlgorithmEffectValue::Range(ph_val..ph_val) },
             AlgorithmEffect::Modify { target: AlgorithmEffectTarget::SelfServer, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::Static(ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::SelfServer, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::SelfServer, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::Range(ph_val..ph_val) },
             AlgorithmEffect::Modify { target: AlgorithmEffectTarget::SelfServer, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::Static(ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::SelfServer, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::SelfServer, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::Range(ph_val..ph_val) },
             AlgorithmEffect::Modify { target: AlgorithmEffectTarget::TargetServer, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::Static(ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::TargetServer, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::TargetServer, stat: ServerStatType::SiphonResist, potency: AlgorithmEffectValue::Range(ph_val..ph_val) },
             AlgorithmEffect::Modify { target: AlgorithmEffectTarget::TargetServer, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::Static(ph_val) },
-            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::TargetServer, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::RangeInclusive(ph_val, ph_val) },
+            AlgorithmEffect::Modify { target: AlgorithmEffectTarget::TargetServer, stat: ServerStatType::ExfilResist, potency: AlgorithmEffectValue::Range(ph_val..ph_val) },
         ];
 
         let mut added_effects = vec![];
@@ -46,9 +46,9 @@ impl AlgorithmGenerator {
                         AlgorithmEffectValue::Static(val) => {
                             *val = rng.random_range(1..10);
                         },
-                        AlgorithmEffectValue::RangeInclusive(low, high) => {
-                            *low = rng.random_range(1..=8);
-                            *high = rng.random_range((*low + 1)..=10);
+                        AlgorithmEffectValue::Range(range) => {
+                            range.start = rng.random_range(1..=8);
+                            range.end = rng.random_range((range.start + 1)..=10);
                         },
                     }
                 }
@@ -57,9 +57,9 @@ impl AlgorithmGenerator {
                         AlgorithmEffectValue::Static(val) => {
                             *val = rng.random_range(1..10);
                         }
-                        AlgorithmEffectValue::RangeInclusive(low, high) => {
-                            *low = rng.random_range(1..10);
-                            *high = rng.random_range((*low + 1)..=10);
+                        AlgorithmEffectValue::Range(range) => {
+                            range.start = rng.random_range(1..8);
+                            range.end = rng.random_range((range.start + 1)..=10);
                         }
                     }
                 }
@@ -68,9 +68,9 @@ impl AlgorithmGenerator {
                         AlgorithmEffectValue::Static(val) => {
                             *val = rng.random_range(-10..10);
                         }
-                        AlgorithmEffectValue::RangeInclusive(low, high) => {
-                            *low = rng.random_range(-10..10);
-                            *high = rng.random_range((*low + 1)..=10);
+                        AlgorithmEffectValue::Range(range) => {
+                            range.start = rng.random_range(-10..10);
+                            range.end = rng.random_range((range.start + 1)..=10);
                         }
                     }
                 }

@@ -1,6 +1,8 @@
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
-use crate::script::ScriptId;
+use std::sync::{Arc, Mutex};
+use crate::script::executor::ScriptExecutor;
+use crate::script::id::ScriptId;
 use crate::ui::clock_speed::ClockSpeed;
 
 #[derive(Clone)]
@@ -13,6 +15,8 @@ pub struct Server {
     pub clock_speed: ClockSpeed,
 
     pub stats: ServerStatInstances,
+
+    pub running_scripts: Vec<Arc<Mutex<ScriptExecutor>>>,
 }
 
 impl Server {
@@ -22,6 +26,7 @@ impl Server {
             threads: 0,
             clock_speed: ClockSpeed::new(0),
             stats: ServerStatInstances::new(),
+            running_scripts: vec![],
         }
     }
 }

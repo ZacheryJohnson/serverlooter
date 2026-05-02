@@ -4,7 +4,7 @@ use crate::event::tutorial_data_dump_purchased::TutorialDataDumpPurchased;
 use crate::l10n::message_id::MessageId;
 use crate::loc;
 use crate::player_state::state::PlayerState;
-use crate::script::ScriptCreatedEvent;
+use crate::script::event::script_created::ScriptCreatedEvent;
 use crate::tutorial::progression::TutorialProgression;
 
 pub fn tutorial_on_script_created(

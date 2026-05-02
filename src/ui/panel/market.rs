@@ -3,8 +3,9 @@ use bevy::prelude::Commands;
 use bevy_egui::egui;
 use bevy_egui::egui::{Context, Ui};
 use crate::event::request_purchase_unlock::RequestPurchaseUnlockEvent;
-use crate::{PlayerState, PlayerUnlock};
+use crate::{loc, PlayerState, PlayerUnlock};
 use crate::event::tutorial_data_dump_purchased::TutorialDataDumpPurchased;
+use crate::l10n::message_id::MessageId;
 use crate::tutorial::progression::TutorialProgression;
 use crate::ui::panel::Panel;
 
@@ -33,23 +34,29 @@ impl Panel for MarketPanel {
         }
 
         ui.heading("Unlocks");
-        ui.separator();
 
-        // ZJ-TODO: don't use newlines, make custom button wrapper
-        let has_unlock = player_state.player_unlocks.exploit_auto_reconnect;
-        let credit_cost = 150;
-        let exploit_auto_reconnect_purchase = egui::Button::new(format!("Exploit Auto-reconnect\n{credit_cost} credits"));
+        for (unlock, credit_cost) in PlayerUnlock::market_unlockable_unlocks() {
+            let unlock_owned = player_state.player_unlocks.is_unlocked(unlock);
 
-        let exploit_auto_reconnect_purchase = ui
-            .add_enabled(!has_unlock, exploit_auto_reconnect_purchase)
-            .on_hover_text("Automatically reconnect to a target server during exploits once disconnected.")
-            .on_disabled_hover_text("Already unlocked");
+            let unlock_button_text = format!(
+                "{}\n{}",
+                player_state.localize(&unlock),
+                loc!(player_state, MessageId::MarketUnlockCreditCost, [("credit_cost", credit_cost.into())].into()),
+            );
 
-        if exploit_auto_reconnect_purchase.clicked() {
-            commands.trigger(RequestPurchaseUnlockEvent {
-                unlock: PlayerUnlock::ExploitAutoReconnect,
-                credit_cost,
-            });
+            let unlock_button = egui::Button::new(unlock_button_text);
+
+            let unlock_ui_response = ui
+                .add_enabled(!unlock_owned, unlock_button)
+                .on_hover_text(player_state.localize(&unlock.description()))
+                .on_disabled_hover_text(loc!(player_state, MessageId::MarketUnlockAlreadyUnlocked));
+
+            if unlock_ui_response.clicked() {
+                commands.trigger(RequestPurchaseUnlockEvent {
+                    unlock,
+                    credit_cost,
+                });
+            }
         }
     }
 }

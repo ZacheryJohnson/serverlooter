@@ -9,9 +9,7 @@ pub enum AlgorithmEffectValue {
     /// This value will always be a single value (the provided `i32`).
     Static(AlgorithmEffectValueT),
 
-    /// This value will be any integer between the lower and upper `i32` values, inclusive.
-    /// Will panic if lower is greater than upper.
-    RangeInclusive(AlgorithmEffectValueT, AlgorithmEffectValueT),
+    Range(Range<AlgorithmEffectValueT>),
 }
 
 impl Display for AlgorithmEffectValue {
@@ -20,8 +18,8 @@ impl Display for AlgorithmEffectValue {
             AlgorithmEffectValue::Static(val) => {
                 write!(f, "{val}")
             }
-            AlgorithmEffectValue::RangeInclusive(low, upp) => {
-                write!(f, "{low}-{upp}")
+            AlgorithmEffectValue::Range(range) => {
+                write!(f, "{}-{}", range.start, range.end)
             }
         }
     }
@@ -34,10 +32,9 @@ impl AlgorithmEffectValue {
         let rng = &mut rand::rng();
         match self {
             Self::Static(v) => *v,
-            Self::RangeInclusive(min, max) => {
-                assert!(min <= max);
+            Self::Range(range) => {
                 rng.sample(
-                    rand::distr::Uniform::new(*min, *max + 1).unwrap()
+                    rand::distr::Uniform::new(range.start, range.end).unwrap()
                 )
             },
         }
@@ -52,6 +49,6 @@ impl From<AlgorithmEffectValueT> for AlgorithmEffectValue {
 
 impl From<Range<AlgorithmEffectValueT>> for AlgorithmEffectValue {
     fn from(value: Range<AlgorithmEffectValueT>) -> Self {
-        AlgorithmEffectValue::RangeInclusive(value.start, value.end)
+        AlgorithmEffectValue::Range(value)
     }
 }

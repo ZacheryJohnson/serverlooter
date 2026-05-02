@@ -1,5 +1,4 @@
 use std::sync::{Arc, Mutex};
-use bevy::prelude::Event;
 use uuid::Uuid;
 use crate::algorithm::algorithm::Algorithm;
 use crate::algorithm::effect::{AlgorithmEffect, target::AlgorithmEffectTarget};
@@ -8,19 +7,10 @@ use crate::server::ServerStatType;
 
 pub mod plugin;
 pub mod systems;
+pub mod event;
 
 pub enum InventoryItem {
     Algorithm(Arc<Mutex<Algorithm>>),
-}
-
-#[derive(Event)]
-pub struct InventoryItemAdded {
-    pub item: InventoryItem,
-}
-
-#[derive(Event)]
-pub struct InventoryItemRemoved {
-    pub item: InventoryItem,
 }
 
 pub struct Inventory {

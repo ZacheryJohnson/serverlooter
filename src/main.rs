@@ -28,8 +28,10 @@ use crate::algorithm::id::AlgorithmId;
 use crate::algorithm::procedure::AlgorithmProcedure;
 use crate::inventory::plugin::InventoryPlugin;
 use crate::player_state::plugin::PlayerStatePlugin;
-use crate::player_state::state::{PlayerState, PlayerUnlock};
-use crate::script::{Script, ScriptId};
+use crate::player_state::state::PlayerState;
+use crate::player_state::unlocks::PlayerUnlock;
+use crate::script::id::ScriptId;
+use crate::script::Script;
 use crate::server::{Server, ServerStatInstance, ServerStatInstances, ServerStatSource, ServerStatType};
 use crate::tutorial::plugin::TutorialPlugin;
 use crate::ui::clock_speed::ClockSpeed;
@@ -51,7 +53,8 @@ fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
             stats: ServerStatInstances::from(&[
                 ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::SiphonResist, 3),
                 ServerStatInstance::new(ServerStatSource::Innate, ServerStatType::ExfilResist, 8),
-            ])
+            ]),
+            running_scripts: vec![],
         })),
         Arc::new(Mutex::new(Script {
             id: ScriptId::Invalid,
@@ -122,7 +125,7 @@ fn handle_keyboard(
 ) -> Result {
     // Cheat: auto-unlock everything
     if keys.just_pressed(KeyCode::Digit0) {
-        player_state.player_unlocks.exploit_auto_reconnect = true;
+        player_state.player_unlocks.unlock(PlayerUnlock::ExploitAutoReconnect);
     }
 
     Ok(())

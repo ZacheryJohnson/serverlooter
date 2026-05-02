@@ -5,10 +5,12 @@
 //         \     /
 //          x-x-/
 
+pub mod executor;
+
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use crate::algorithm::algorithm::Algorithm;
-use crate::script::AlgorithmExecutor;
+use crate::algorithm::executor::AlgorithmExecutor;
 
 #[derive(Clone)]
 pub struct AlgorithmProcedure {

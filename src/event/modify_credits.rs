@@ -1,5 +1,5 @@
 use bevy::prelude::Event;
-use crate::script::ScriptId;
+use crate::script::id::ScriptId;
 
 pub enum ModificationSource {
     Script(#[allow(dead_code)] ScriptId),

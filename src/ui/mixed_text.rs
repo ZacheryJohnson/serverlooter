@@ -10,25 +10,29 @@ pub enum MixedTextNode<'s> {
 
 impl<'s> MixedTextNode<'s> {
     pub fn draw(ui: &mut egui::Ui, nodes: Vec<MixedTextNode>, player_state: &PlayerState) {
-        ui.horizontal(|ui| {
-            for node in nodes {
-                match node {
-                    MixedTextNode::Text(text) => {
-                        ui.label(text);
-                    }
-                    MixedTextNode::Localizable(localizable) => {
-                        let text = player_state.localize_dyn(localizable);
-                        ui.label(text);
-                    }
-                    MixedTextNode::Image(image) => {
-                        ui.add(
-                            egui::Image::new(image)
-                                .max_size([32.0, 32.0].into())
-                                .maintain_aspect_ratio(true)
-                        );
+        ui.scope(|ui| {
+            ui.style_mut().spacing.item_spacing = egui::Vec2::ZERO;
+
+            ui.horizontal(|ui| {
+                for node in nodes {
+                    match node {
+                        MixedTextNode::Text(text) => {
+                            ui.label(text);
+                        }
+                        MixedTextNode::Localizable(localizable) => {
+                            let text = player_state.localize_dyn(localizable);
+                            ui.label(text);
+                        }
+                        MixedTextNode::Image(image) => {
+                            ui.add(
+                                egui::Image::new(image)
+                                    .max_size([32.0, 32.0].into()) // ZJ-TODO: take size as a param
+                                    .maintain_aspect_ratio(true)
+                            );
+                        }
                     }
                 }
-            }
+            });
         });
     }
 }

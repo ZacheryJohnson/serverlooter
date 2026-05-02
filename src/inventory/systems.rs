@@ -1,5 +1,7 @@
 use bevy::prelude::{On, ResMut};
-use crate::inventory::{InventoryItem, InventoryItemAdded, InventoryItemRemoved};
+use crate::inventory::event::item_added::InventoryItemAdded;
+use crate::inventory::event::item_removed::InventoryItemRemoved;
+use crate::inventory::InventoryItem;
 use crate::player_state::state::PlayerState;
 
 pub fn on_inventory_item_added(

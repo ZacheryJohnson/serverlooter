@@ -10,7 +10,7 @@ strum = { version = "=0.27.2", features = ["derive"] }
 walkdir = "2.5.0"
 
 [dependencies]
-bevy = { version = "=0.18.0", default-features = false, features = ["2d"] }
+bevy = { version = "=0.18.0", default-features = false, features = ["2d", "wayland"] }
 bevy_egui = { version = "=0.39.1", default-features = false, features = ["render", "default_fonts", "bevy_ui", "picking"] }
 egui_extras = { version = "=0.33.3", features = ["all_loaders"] }
 fluent-templates = "=0.13.2"

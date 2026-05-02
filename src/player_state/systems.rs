@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use bevy::prelude::{Commands, On, ResMut};
 use crate::event::request_start_exploit::RequestStartExploitEvent;
-use crate::player_state::state::{PlayerState, PlayerUnlock};
+use crate::player_state::state::PlayerState;
 use crate::{lock_and_clone, TIME_BETWEEN_TICKS};
 use crate::active_exploit::{ActiveExploit, ActiveExploitStatus};
 use crate::algorithm::effect::{AlgorithmEffect, application::AlgorithmEffectApplication, target::AlgorithmEffectTarget};
@@ -13,8 +13,10 @@ use crate::event::request_purchase_unlock::RequestPurchaseUnlockEvent;
 use crate::event::request_restart_exploit::RequestRestartExploitEvent;
 use crate::event::request_resume_exploit::RequestResumeExploitEvent;
 use crate::event::request_stop_exploit::RequestStopExploitEvent;
-use crate::inventory::{InventoryItem, InventoryItemAdded};
-use crate::script::ScriptCreatedEvent;
+use crate::inventory::event::item_added::InventoryItemAdded;
+use crate::inventory::InventoryItem;
+use crate::player_state::unlocks::PlayerUnlock;
+use crate::script::event::script_created::ScriptCreatedEvent;
 use crate::server::{ServerStatInstance, ServerStatSource, ServerStatType, ServerStats};
 use crate::tutorial::progression::TutorialProgression;
 use crate::ui::state::UiState;
@@ -31,6 +33,10 @@ pub(crate) fn on_request_start_exploit(
 
     // ZJ-TODO: validate server can accommodate another process
     // ZJ-TODO: validate server can meets thread minimums
+    let running_scripts = lock_and_clone!(server, running_scripts);
+    for running_script in running_scripts
+    {
+    }
 
     // ZJ-TODO: actually implement way to shift resource allocation
     //          for now, just time share equally
@@ -48,7 +54,7 @@ pub(crate) fn on_request_start_exploit(
         existing_exploit.clock_allocation = new_clock_speed_per_process.into();
     }
 
-    let auto_reconnect = player_state.player_unlocks.exploit_auto_reconnect;
+    let auto_reconnect = player_state.player_unlocks.is_unlocked(PlayerUnlock::ExploitAutoReconnect);
     let active_exploit = Arc::new(Mutex::new(ActiveExploit::new(
         target,
         script,
@@ -153,15 +159,7 @@ pub(crate) fn on_request_purchase_unlock(
     }
 
     player_state.credits -= evt.credit_cost;
-
-    // ZJ-TODO: rather than having a separate list of bools,
-    //          it'd be nice to just have a collection of enums
-
-    match evt.unlock {
-        PlayerUnlock::ExploitAutoReconnect => {
-            player_state.player_unlocks.exploit_auto_reconnect = true;
-        }
-    }
+    player_state.player_unlocks.unlock(evt.unlock);
 
     Ok(())
 }
@@ -192,7 +190,7 @@ pub(crate) fn tick_active_exploits(
     for active_exploit in &player_state.active_exploits {
         let (new_host_effects, new_target_effects) = {
             let mut active_exploit = active_exploit.lock().unwrap();
-            // ZJ-TODO: compared allocated speed vs server's current capacity
+            // ZJ-TODO: compare allocated speed vs server's current capacity
             //          this should probably be refactored
             let server_speed = *active_exploit.clock_allocation;
             let ticks_since_last = (server_speed as f64 * time_since_last_tick.as_secs_f64()).floor() as u64;
@@ -234,8 +232,8 @@ pub(crate) fn process_algorithm_effect_application(
 ) {
     let mut active_exploit = active_exploit.lock().unwrap();
     let from_player_server = {
-        let host_server_name = active_exploit.hosting_server.lock().unwrap().name.clone();
-        let application_server_name = application.host_server.lock().unwrap().name.clone();
+        let host_server_name = lock_and_clone!(active_exploit.hosting_server, name);
+        let application_server_name = lock_and_clone!(application.host_server, name);
 
         host_server_name == application_server_name
     };

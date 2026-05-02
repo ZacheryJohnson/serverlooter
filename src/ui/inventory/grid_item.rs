@@ -4,7 +4,8 @@ use bevy_egui::egui::text::LayoutJob;
 use crate::{PlayerState};
 use crate::algorithm::algorithm::Algorithm;
 use crate::algorithm::effect::AlgorithmEffect;
-use crate::script::{Script, ScriptId};
+use crate::script::id::ScriptId;
+use crate::script::Script;
 use crate::ui::hover_text::OnHoverText;
 
 pub enum InventoryGridItemDisplay {
