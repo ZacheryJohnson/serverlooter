@@ -29,6 +29,12 @@ impl Server {
             running_scripts: vec![],
         }
     }
+
+    // pub fn available_compute(&self) -> ClockSpeed {
+    //     for running_script in &self.running_scripts {
+    //         let executor = running_script.lock().unwrap()
+    //     }
+    // }
 }
 
 pub trait ServerStats {

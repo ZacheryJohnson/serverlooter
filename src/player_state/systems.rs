@@ -34,8 +34,7 @@ pub(crate) fn on_request_start_exploit(
     // ZJ-TODO: validate server can accommodate another process
     // ZJ-TODO: validate server can meets thread minimums
     let running_scripts = lock_and_clone!(server, running_scripts);
-    for running_script in running_scripts
-    {
+    for running_script in running_scripts {
     }
 
     // ZJ-TODO: actually implement way to shift resource allocation

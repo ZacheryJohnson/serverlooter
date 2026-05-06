@@ -1,14 +1,15 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use crate::algorithm::algorithm::Algorithm;
 use crate::algorithm::effect::AlgorithmEffect;
 use crate::algorithm::executor::AlgorithmExecutor;
-use crate::algorithm::procedure::AlgorithmProcedure;
+use crate::algorithm::procedure::{AlgorithmProcedure, AlgorithmProcedureIterator};
 use crate::executor::Executor;
 
 #[derive(Clone)]
 pub struct AlgorithmProcedureExecutor {
-    procedure: AlgorithmProcedure,
-    finished_algorithms: Vec<Arc<Mutex<Algorithm>>>,
+    procedure: Weak<Mutex<AlgorithmProcedure>>,
+    procedure_iterator: AlgorithmProcedureIterator,
+    finished_algorithms: Vec<Weak<Mutex<Algorithm>>>,
     algorithm_executor: AlgorithmExecutor,
 
     total_expected_instructions: u64,
@@ -18,17 +19,21 @@ pub struct AlgorithmProcedureExecutor {
 impl AlgorithmProcedureExecutor {
     /// Creates an AlgorithmProcedureExecutor from an AlgorithmProcedure.
     /// If the procedure contains no algorithms, returns None.
-    pub fn from(mut algorithm_procedure: AlgorithmProcedure) -> Option<AlgorithmProcedureExecutor> {
-        let total_expected_instructions = algorithm_procedure.instruction_count();
+    pub fn from(algorithm_procedure: &Arc<Mutex<AlgorithmProcedure>>) -> Option<AlgorithmProcedureExecutor> {
+        let procedure_inner = algorithm_procedure.lock().unwrap();
+        let total_expected_instructions = procedure_inner.instruction_count();
 
-        let Some(executor) = algorithm_procedure.next() else {
+        let mut procedure_iterator = procedure_inner.iterator();
+
+        let Some(algorithm) = procedure_iterator.next() else {
             return None;
         };
 
         Some(AlgorithmProcedureExecutor {
-            procedure: algorithm_procedure,
+            procedure: Arc::downgrade(algorithm_procedure),
+            procedure_iterator,
             finished_algorithms: Vec::new(),
-            algorithm_executor: executor,
+            algorithm_executor: AlgorithmExecutor::from(algorithm),
             total_expected_instructions,
             is_paused: true,
         })
@@ -60,11 +65,11 @@ impl Executor for AlgorithmProcedureExecutor {
             self.finished_algorithms.push(finished_algorithm);
 
             // Pop next algorithm and begin executing it
-            let Some(next_algorithm_executor) = self.procedure.next() else {
+            let Some(next_algorithm_executor) = self.procedure_iterator.next() else {
                 return vec![];
             };
 
-            self.algorithm_executor = next_algorithm_executor;
+            self.algorithm_executor = AlgorithmExecutor::from(next_algorithm_executor);
             self.algorithm_executor.start_execution();
         }
 
@@ -72,14 +77,14 @@ impl Executor for AlgorithmProcedureExecutor {
     }
 
     fn is_complete(&self) -> bool {
-        self.procedure.is_complete() && self.algorithm_executor.is_complete()
+        self.procedure_iterator.is_empty() && self.algorithm_executor.is_complete()
     }
 
     fn progress(&self) -> u64 {
         let completed_instruction_count: u64 = self
             .finished_algorithms
             .iter()
-            .map(|algorithm| *algorithm.lock().unwrap().instruction_count)
+            .map(|algorithm| *algorithm.upgrade().unwrap().lock().unwrap().instruction_count)
             .sum();
 
         let current_instruction_pointer = self.algorithm_executor.instruction_pointer;

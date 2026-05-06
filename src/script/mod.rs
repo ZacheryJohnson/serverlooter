@@ -3,14 +3,14 @@ pub mod id;
 pub mod builder;
 pub mod executor;
 
+use std::sync::{Arc, Mutex};
 use crate::algorithm::procedure::AlgorithmProcedure;
-use crate::script::executor::ScriptExecutor;
 use crate::script::id::ScriptId;
 
 #[derive(Clone)]
 pub struct Script {
     pub id: ScriptId,
-    pub procedures: Vec<AlgorithmProcedure>,
+    pub procedures: Vec<Arc<Mutex<AlgorithmProcedure>>>,
 }
 
 impl Script {
@@ -18,18 +18,16 @@ impl Script {
         Script::new(ScriptId::Invalid, Vec::new())
     }
 
-    pub fn new(id: ScriptId, procedures: Vec<AlgorithmProcedure>) -> Script {
+    pub fn new(id: ScriptId, procedures: Vec<Arc<Mutex<AlgorithmProcedure>>>) -> Script {
         Script { id, procedures }
     }
 
-    /// Clones self to create an executor.
-    pub fn executor(&self) -> ScriptExecutor {
-        let clone = self.clone();
-        ScriptExecutor::from(clone)
-    }
-
-    pub fn into_executor(self) -> ScriptExecutor {
-        ScriptExecutor::from(self)
+    pub fn instruction_count(&self) -> u64 {
+        self
+            .procedures
+            .iter()
+            .map(|procedure| procedure.lock().unwrap().instruction_count())
+            .sum()
     }
 }
 
@@ -45,6 +43,7 @@ mod tests {
     use crate::algorithm::id::AlgorithmId;
     use crate::algorithm::procedure::executor::AlgorithmProcedureExecutor;
     use crate::executor::Executor;
+    use crate::script::executor::ScriptExecutor;
 
     fn make_id() -> AlgorithmId {
         Uuid::new_v4().into()
@@ -58,7 +57,7 @@ mod tests {
             instruction_effects: Default::default(),
         }));
 
-        let mut executor = AlgorithmExecutor::from(algorithm);
+        let mut executor = AlgorithmExecutor::from(Arc::downgrade(&algorithm));
 
         assert_eq!(executor.is_complete(), false);
         executor.start_execution();
@@ -86,8 +85,10 @@ mod tests {
             instruction_effects: Default::default(),
         }));
 
-        let procedure = AlgorithmProcedure::from(&[algorithm1, algorithm2]);
-        let mut executor = AlgorithmProcedureExecutor::from(procedure).unwrap();
+        let procedure = Arc::new(Mutex::new(
+            AlgorithmProcedure::from(&[algorithm1, algorithm2])
+        ));
+        let mut executor = AlgorithmProcedureExecutor::from(&procedure).unwrap();
 
         assert_eq!(executor.is_complete(), false);
         executor.start_execution();
@@ -121,7 +122,9 @@ mod tests {
             ],
         }));
 
-        let procedure = AlgorithmProcedure::from(&[algorithm1, algorithm2]);
+        let procedure = Arc::new(Mutex::new(
+            AlgorithmProcedure::from(&[algorithm1, algorithm2])
+        ));
 
         let script = Script::new(
             ScriptId::Id(1),
@@ -139,7 +142,10 @@ mod tests {
             ]),
         ]);
 
-        let mut executor = script.into_executor();
+        let script_arc = Arc::new(Mutex::new(script));
+        let script_weak = Arc::downgrade(&script_arc);
+
+        let mut executor = ScriptExecutor::from(script_weak);
         assert_eq!(executor.is_complete(), false);
         executor.start_execution();
         assert_eq!(executor.is_complete(), false);

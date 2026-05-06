@@ -159,8 +159,10 @@ impl Panel for ScriptsPanel {
                     .max_size([32f32, 32f32].into());
                 ui.add(down_arrow_img.clone());
 
-                let mut algorithms = procedure.algorithms();
+                let procedure = procedure.lock().unwrap();
+                let mut algorithms = procedure.iterator();
                 while let Some(algorithm) = algorithms.next() {
+                    let algorithm = algorithm.upgrade().unwrap();
                     let algorithm_inner = algorithm.lock().unwrap();
                     let group = ui.group(|ui| {
                         ui.label(player_state.localize(&algorithm_inner.instruction_count));
@@ -202,7 +204,12 @@ impl Panel for ScriptsPanel {
             }
 
             if let Some(algorithm) = algorithm_to_remove {
-                self.script_builder.remove_algorithm(algorithm.clone());
+                let algorithm_id = {
+                    let algorithm_inner = algorithm.lock().unwrap();
+                    algorithm_inner.id.clone()
+                };
+                
+                self.script_builder.remove_algorithm(algorithm_id);
                 commands.trigger(InventoryItemAdded {
                     item: InventoryItem::Algorithm(algorithm),
                 });

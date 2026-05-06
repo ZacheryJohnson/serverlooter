@@ -1,22 +1,26 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use crate::algorithm::algorithm::Algorithm;
 use crate::algorithm::effect::AlgorithmEffect;
 use crate::executor::Executor;
 
 #[derive(Clone)]
 pub struct AlgorithmExecutor {
-    pub(crate) algorithm: Arc<Mutex<Algorithm>>,
+    pub(crate) algorithm: Weak<Mutex<Algorithm>>,
     pub(crate) instruction_pointer: u64,
     is_paused: bool,
 }
 
 impl AlgorithmExecutor {
-    pub fn from(algorithm: Arc<Mutex<Algorithm>>) -> AlgorithmExecutor {
+    pub fn from(algorithm: Weak<Mutex<Algorithm>>) -> AlgorithmExecutor {
         AlgorithmExecutor {
             algorithm,
             instruction_pointer: 0,
             is_paused: true,
         }
+    }
+
+    pub fn from_arc(algorithm: &Arc<Mutex<Algorithm>>) -> AlgorithmExecutor {
+        AlgorithmExecutor::from(Arc::downgrade(algorithm))
     }
 }
 
@@ -34,10 +38,10 @@ impl Executor for AlgorithmExecutor {
             return vec![];
         }
 
-        let next_effects = self
-            .algorithm
-            .lock()
-            .unwrap()
+        let algorithm_arc = self.algorithm.upgrade().unwrap();
+        let algorithm = algorithm_arc.lock().unwrap();
+
+        let next_effects = algorithm
             .instruction_effects
             .iter()
             .filter(|(instruction_count, _)| **instruction_count > self.instruction_pointer && self.instruction_pointer + tick_count >= **instruction_count)
@@ -45,13 +49,13 @@ impl Executor for AlgorithmExecutor {
             .flatten()
             .collect::<Vec<AlgorithmEffect>>();
 
-        self.instruction_pointer = (self.instruction_pointer + tick_count).min(*self.algorithm.lock().unwrap().instruction_count);
+        self.instruction_pointer = (self.instruction_pointer + tick_count).min(*algorithm.instruction_count);
 
         next_effects
     }
 
     fn is_complete(&self) -> bool {
-        self.instruction_pointer >= *self.algorithm.lock().unwrap().instruction_count
+        self.instruction_pointer >= self.total_instructions()
     }
 
     fn progress(&self) -> u64 {
@@ -59,6 +63,8 @@ impl Executor for AlgorithmExecutor {
     }
 
     fn total_instructions(&self) -> u64 {
-        *self.algorithm.lock().unwrap().instruction_count
+        let algorithm_arc = self.algorithm.upgrade().unwrap();
+        let algorithm = algorithm_arc.lock().unwrap();
+        *algorithm.instruction_count
     }
 }

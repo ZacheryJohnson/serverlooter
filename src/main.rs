@@ -59,7 +59,7 @@ fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
         Arc::new(Mutex::new(Script {
             id: ScriptId::Invalid,
             procedures: vec![
-                AlgorithmProcedure::from(&[
+                Arc::new(Mutex::new(AlgorithmProcedure::from(&[
                     Arc::new(Mutex::new(Algorithm {
                         id: AlgorithmId::Id(Uuid::new_v4()),
                         instruction_count: 1_000_000.into(),
@@ -70,8 +70,8 @@ fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
                             (1_000_000.into(), vec![AlgorithmEffect::Terminate { potency: AlgorithmEffectValue::Static(1) } ]),
                         ],
                     }))
-                ]),
-                AlgorithmProcedure::from(&[
+                ]))),
+                Arc::new(Mutex::new(AlgorithmProcedure::from(&[
                     Arc::new(Mutex::new(Algorithm {
                         id: AlgorithmId::Id(Uuid::new_v4()),
                         instruction_count: 1_000_000.into(),
@@ -91,7 +91,7 @@ fn make_exploit_target() -> Arc<Mutex<ExploitTarget>> {
                             ])
                         ]
                     }))
-                ])
+                ])))
             ],
         }))
     )))

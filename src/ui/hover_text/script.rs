@@ -1,6 +1,5 @@
 use bevy_egui::egui::text::LayoutJob;
 use bevy_egui::egui::{Color32, TextFormat};
-use crate::executor::Executor;
 use crate::player_state::state::PlayerState;
 use crate::script::Script;
 use crate::ui::hover_text::OnHoverText;
@@ -22,7 +21,7 @@ impl OnHoverText for Script {
         );
 
         hover_text_layout_job.append(
-            &format!("(IC {})\n", self.executor().total_instructions()),
+            &format!("(IC {})\n", self.instruction_count()),
             0.0,
             ic_text_format.clone(),
         );
@@ -33,7 +32,10 @@ impl OnHoverText for Script {
         let mut thread_id = 'a';
         for procedure in &self.procedures {
             let mut algorithm_id = 1;
-            for algorithm in procedure.algorithms() {
+
+            let procedure = procedure.lock().unwrap();
+            for algorithm in procedure.iterator() {
+                let algorithm = algorithm.upgrade().unwrap();
                 let algorithm = algorithm.lock().unwrap();
                 hover_text_layout_job.append(
                     &format!("{thread_id}.{algorithm_id}: "),
