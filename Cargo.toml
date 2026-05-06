@@ -6,18 +6,18 @@ edition = "2024"
 [build-dependencies]
 convert_case = "0.11.0"
 fluent-syntax = "0.12.0"
-strum = { version = "=0.27.2", features = ["derive"] }
+strum = { version = "=0.28.0", features = ["derive"] }
 walkdir = "2.5.0"
 
 [dependencies]
-bevy = { version = "=0.18.0", default-features = false, features = ["2d", "wayland"] }
+bevy = { version = "=0.18.1", default-features = false, features = ["2d", "wayland"] }
 bevy_egui = { version = "=0.39.1", default-features = false, features = ["render", "default_fonts", "bevy_ui", "picking"] }
 egui_extras = { version = "=0.33.3", features = ["all_loaders"] }
-fluent-templates = "=0.13.2"
-rand = "=0.10.0"
+fluent-templates = "=0.14.0"
+rand = "=0.10.1"
 rand_distr = "=0.6.0"
-strum = { version = "=0.27.2", features = ["derive"] }
-uuid = { version = "=1.20.0", features = ["v4"] }
+strum = { version = "=0.28.0", features = ["derive"] }
+uuid = { version = "=1.23.1", features = ["v4"] }
 web-time = "=1.1.0"
 
 [profile.wasm]
